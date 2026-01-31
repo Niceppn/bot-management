@@ -1,4 +1,9 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+// Use relative path for production, absolute for development
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  window.location.hostname === 'localhost'
+    ? 'http://localhost:3001/api'
+    : '/api'
+)
 
 const getToken = () => localStorage.getItem('token')
 const setToken = (token) => localStorage.setItem('token', token)
