@@ -1,0 +1,327 @@
+.promotion-fees-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  gap: 2rem;
+}
+
+.page-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+.page-subtitle {
+  color: #8b92a7;
+  font-size: 1.1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.success-message {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+/* Statistics Section */
+.stats-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border-radius: 16px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #8b92a7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.stat-value.danger {
+  color: #ef4444;
+}
+
+/* Removals Section */
+.removals-section {
+  padding: 1.5rem;
+  border-radius: 16px;
+  margin-bottom: 2rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-header h3 {
+  color: #ef4444;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.removals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.removal-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(15, 15, 35, 0.6);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  gap: 1rem;
+}
+
+.removal-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.removal-info strong {
+  color: #fff;
+  font-size: 1rem;
+}
+
+.removal-fees {
+  color: #fca5a5;
+  font-size: 0.875rem;
+}
+
+.removal-time {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+/* Fees Table Section */
+.fees-table-section {
+  padding: 1.5rem;
+  border-radius: 16px;
+  margin-bottom: 2rem;
+}
+
+.fees-table-section h3 {
+  color: #e0e7ff;
+  font-size: 1.25rem;
+  margin: 0 0 1rem 0;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.fees-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fees-table thead {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.fees-table th {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #8b92a7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fees-table td {
+  padding: 0.875rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: #e0e7ff;
+  font-size: 0.9rem;
+}
+
+.fees-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.fees-table td strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.fee-maker-free {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.fee-date {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* ===== Responsive Design ===== */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .promotion-fees-container {
+    padding: 1.5rem;
+  }
+
+  .page-title {
+    font-size: 2rem;
+  }
+
+  .stats-section {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .promotion-fees-container {
+    padding: 1rem;
+    padding-top: 4rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .page-title {
+    font-size: 1.75rem;
+  }
+
+  .page-subtitle {
+    font-size: 1rem;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .header-actions .btn {
+    width: 100%;
+  }
+
+  .stats-section {
+    grid-template-columns: 1fr;
+    gap: 0.875rem;
+    padding: 1.25rem;
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
+  }
+
+  .removals-section {
+    padding: 1.25rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .section-header .btn {
+    width: 100%;
+  }
+
+  .removal-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .removal-item .btn {
+    width: 100%;
+  }
+
+  .fees-table-section {
+    padding: 1.25rem;
+  }
+
+  .fees-table-section h3 {
+    font-size: 1.1rem;
+  }
+
+  .table-container {
+    margin: 0 -1.25rem;
+    padding: 0 1.25rem;
+  }
+
+  .fees-table th,
+  .fees-table td {
+    padding: 0.75rem 0.65rem;
+    font-size: 0.85rem;
+  }
+
+  .fees-table th:last-child,
+  .fees-table td:last-child {
+    display: none; /* Hide Last Updated column on mobile */
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+  .promotion-fees-container {
+    padding: 0.875rem;
+    padding-top: 3.5rem;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .fees-table th,
+  .fees-table td {
+    padding: 0.65rem 0.5rem;
+    font-size: 0.8rem;
+  }
+}

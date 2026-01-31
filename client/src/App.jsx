@@ -5,6 +5,7 @@ import BotDashboard from './components/BotDashboard'
 import BotDetail from './components/BotDetail'
 import CreatePriceCollectorBot from './components/CreatePriceCollectorBot'
 import PriceCollectorDetail from './components/PriceCollectorDetail'
+import PromotionFees from './components/PromotionFees'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -77,6 +78,14 @@ function App() {
           element={
             isAuthenticated ?
               <BotDetail onLogout={handleLogout} /> :
+              <Navigate to="/login" replace />
+          }
+        />
+        <Route
+          path="/promotion-fees"
+          element={
+            isAuthenticated ?
+              <PromotionFees onLogout={handleLogout} /> :
               <Navigate to="/login" replace />
           }
         />

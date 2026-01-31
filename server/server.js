@@ -6,6 +6,7 @@ import botRoutes from './routes/bots.js'
 import logRoutes from './routes/logs.js'
 import tradeRoutes from './routes/trades.js'
 import systemRoutes from './routes/system.js'
+import promotionFeeRoutes from './routes/promotionFees.js'
 import { initializeDatabase, getDatabase } from './config/database.js'
 
 dotenv.config()
@@ -27,6 +28,7 @@ app.use('/api/bots', botRoutes)
 app.use('/api/logs', logRoutes)
 app.use('/api/trades', tradeRoutes)
 app.use('/api/system', systemRoutes)
+app.use('/api/promotion-fees', promotionFeeRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

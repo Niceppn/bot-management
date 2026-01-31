@@ -206,3 +206,39 @@ export const tradesAPI = {
     })
   }
 }
+
+// Promotion Fee API
+export const promotionFeeAPI = {
+  scrape: async () => {
+    return apiRequest('/promotion-fees/scrape', {
+      method: 'POST'
+    })
+  },
+
+  getAll: async () => {
+    const response = await apiRequest('/promotion-fees')
+    return response.data || { maker_free: [], all_free: [], total: 0 }
+  },
+
+  getRemovals: async () => {
+    const response = await apiRequest('/promotion-fees/removals')
+    return response.data || []
+  },
+
+  markRemovalRead: async (id) => {
+    return apiRequest(`/promotion-fees/removals/${id}/read`, {
+      method: 'POST'
+    })
+  },
+
+  markAllRemovalsRead: async () => {
+    return apiRequest('/promotion-fees/removals/read-all', {
+      method: 'POST'
+    })
+  },
+
+  getStats: async () => {
+    const response = await apiRequest('/promotion-fees/stats')
+    return response.data || {}
+  }
+}

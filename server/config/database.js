@@ -122,5 +122,37 @@ export const initializeDatabase = () => {
     CREATE INDEX IF NOT EXISTS idx_crypto_trades_timestamp ON crypto_trades(timestamp_ms)
   `)
 
+  // Create promotion_fees table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS promotion_fees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      symbol TEXT NOT NULL UNIQUE,
+      maker_fee TEXT NOT NULL,
+      taker_fee TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+
+  // Create promotion_fee_removals table (for notifications)
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS promotion_fee_removals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      symbol TEXT NOT NULL,
+      maker_fee TEXT NOT NULL,
+      taker_fee TEXT NOT NULL,
+      removed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      is_read INTEGER DEFAULT 0
+    )
+  `)
+
+  // Indexes for promotion_fees
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_promotion_fees_symbol ON promotion_fees(symbol)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_promotion_fee_removals_is_read ON promotion_fee_removals(is_read)
+  `)
+
   console.log('✅ Database schema initialized')
 }
