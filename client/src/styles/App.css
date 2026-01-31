@@ -135,3 +135,50 @@ body {
   font-size: 1rem;
   margin-top: 1rem;
 }
+
+/* ===== Responsive Design ===== */
+
+/* Tablet & Mobile */
+@media (max-width: 1024px) {
+  .dashboard-content {
+    padding-left: 0;
+  }
+}
+
+/* Mobile Only */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  .btn {
+    padding: 0.65rem 1.25rem;
+    font-size: 0.85rem;
+  }
+
+  .message {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9rem;
+  }
+
+  .loading-container {
+    padding: 3rem 1.5rem;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+  body {
+    font-size: 13px;
+  }
+
+  .btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.8rem;
+  }
+}
