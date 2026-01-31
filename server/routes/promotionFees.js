@@ -110,8 +110,10 @@ router.get('/', verifyToken, (req, res) => {
     `).all()
 
     // Split into two categories
-    const makerFree = allFees.filter(fee => fee.maker_fee === '0%')
-    const allFree = allFees.filter(fee => fee.maker_fee !== '0%')
+    // All Free = Both maker AND taker are 0%
+    // Maker Free = Only maker is 0%, but taker is not
+    const allFree = allFees.filter(fee => fee.maker_fee === '0%' && fee.taker_fee === '0%')
+    const makerFree = allFees.filter(fee => fee.maker_fee === '0%' && fee.taker_fee !== '0%')
 
     res.json({
       success: true,
@@ -216,7 +218,8 @@ router.get('/stats', verifyToken, (req, res) => {
     const db = getDatabase()
 
     const totalFees = db.prepare('SELECT COUNT(*) as count FROM promotion_fees').get()
-    const makerFreeCount = db.prepare("SELECT COUNT(*) as count FROM promotion_fees WHERE maker_fee = '0%'").get()
+    const allFreeCount = db.prepare("SELECT COUNT(*) as count FROM promotion_fees WHERE maker_fee = '0%' AND taker_fee = '0%'").get()
+    const makerFreeCount = db.prepare("SELECT COUNT(*) as count FROM promotion_fees WHERE maker_fee = '0%' AND taker_fee != '0%'").get()
     const unreadRemovals = db.prepare('SELECT COUNT(*) as count FROM promotion_fee_removals WHERE is_read = 0').get()
     const totalRemovals = db.prepare('SELECT COUNT(*) as count FROM promotion_fee_removals').get()
 
@@ -227,8 +230,8 @@ router.get('/stats', verifyToken, (req, res) => {
       success: true,
       data: {
         total_promotions: totalFees.count,
+        all_free_count: allFreeCount.count,
         maker_free_count: makerFreeCount.count,
-        all_free_count: totalFees.count - makerFreeCount.count,
         unread_removals: unreadRemovals.count,
         total_removals: totalRemovals.count,
         last_updated: latestUpdate.latest

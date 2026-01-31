@@ -11,6 +11,9 @@ function PromotionFees({ onLogout }) {
   const [isScraping, setIsScraping] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [isRealtimeActive, setIsRealtimeActive] = useState(false)
+  const [prices, setPrices] = useState({}) // { symbol: { price, direction } }
+  const wsConnections = useState(new Map())[0] // WebSocket connections
 
   useEffect(() => {
     fetchData()
@@ -89,6 +92,88 @@ function PromotionFees({ onLogout }) {
     }
   }
 
+  const connectWebSocket = (symbol) => {
+    // Format symbol for WebSocket (remove "/")
+    const wsSymbol = symbol.replace('/', '').toLowerCase()
+    const wsUrl = `wss://stream.binance.com:9443/ws/${wsSymbol}@aggTrade`
+
+    const ws = new WebSocket(wsUrl)
+
+    ws.onopen = () => {
+      console.log(`WebSocket connected for ${symbol}`)
+    }
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      const newPrice = parseFloat(data.p)
+
+      setPrices(prev => {
+        const oldPrice = prev[symbol]?.price || newPrice
+        const direction = newPrice > oldPrice ? 'up' : newPrice < oldPrice ? 'down' : prev[symbol]?.direction || 'neutral'
+
+        return {
+          ...prev,
+          [symbol]: { price: newPrice, direction }
+        }
+      })
+    }
+
+    ws.onerror = (error) => {
+      console.error(`WebSocket error for ${symbol}:`, error)
+    }
+
+    ws.onclose = () => {
+      console.log(`WebSocket closed for ${symbol}`)
+    }
+
+    wsConnections.set(symbol, ws)
+  }
+
+  const disconnectWebSocket = (symbol) => {
+    const ws = wsConnections.get(symbol)
+    if (ws) {
+      ws.close()
+      wsConnections.delete(symbol)
+    }
+  }
+
+  const disconnectAllWebSockets = () => {
+    wsConnections.forEach((ws, symbol) => {
+      ws.close()
+    })
+    wsConnections.clear()
+    setPrices({})
+  }
+
+  const handleRealtimeToggle = () => {
+    if (isRealtimeActive) {
+      // Disconnect all WebSockets
+      disconnectAllWebSockets()
+      setIsRealtimeActive(false)
+    } else {
+      // Connect WebSockets for all symbols
+      const allSymbols = [...data.maker_free, ...data.all_free].map(fee => fee.symbol)
+      allSymbols.forEach(symbol => connectWebSocket(symbol))
+      setIsRealtimeActive(true)
+    }
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      disconnectAllWebSockets()
+    }
+  }, [])
+
+  // Reconnect WebSockets when data changes and realtime is active
+  useEffect(() => {
+    if (isRealtimeActive && !isLoading) {
+      disconnectAllWebSockets()
+      const allSymbols = [...data.maker_free, ...data.all_free].map(fee => fee.symbol)
+      allSymbols.forEach(symbol => connectWebSocket(symbol))
+    }
+  }, [data, isRealtimeActive, isLoading])
+
   return (
     <div className="dashboard">
       <Sidebar onLogout={onLogout} />
@@ -100,6 +185,13 @@ function PromotionFees({ onLogout }) {
               <p className="page-subtitle">Binance trading promotion fees</p>
             </div>
             <div className="header-actions">
+              <button
+                className={`btn ${isRealtimeActive ? 'btn-success' : 'btn-secondary'}`}
+                onClick={handleRealtimeToggle}
+                disabled={isLoading}
+              >
+                {isRealtimeActive ? '📡 Realtime ON' : '📡 Realtime OFF'}
+              </button>
               <button
                 className="btn btn-primary"
                 onClick={handleScrape}
@@ -193,18 +285,27 @@ function PromotionFees({ onLogout }) {
                           <th>Symbol</th>
                           <th>Maker Fee</th>
                           <th>Taker Fee</th>
+                          <th>Price</th>
                           <th>Last Updated</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.maker_free.map((fee, index) => (
-                          <tr key={index}>
-                            <td><strong>{fee.symbol}</strong></td>
-                            <td className="fee-maker-free">{fee.maker_fee}</td>
-                            <td>{fee.taker_fee}</td>
-                            <td className="fee-date">{new Date(fee.updated_at).toLocaleDateString()}</td>
-                          </tr>
-                        ))}
+                        {data.maker_free.map((fee, index) => {
+                          const priceData = prices[fee.symbol]
+                          const priceClass = priceData?.direction === 'up' ? 'price-up' : priceData?.direction === 'down' ? 'price-down' : ''
+
+                          return (
+                            <tr key={index}>
+                              <td><strong>{fee.symbol}</strong></td>
+                              <td className="fee-maker-free">{fee.maker_fee}</td>
+                              <td>{fee.taker_fee}</td>
+                              <td className={`fee-price ${priceClass}`}>
+                                {priceData ? priceData.price.toFixed(6) : '-'}
+                              </td>
+                              <td className="fee-date">{new Date(fee.updated_at).toLocaleDateString()}</td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -224,18 +325,27 @@ function PromotionFees({ onLogout }) {
                           <th>Symbol</th>
                           <th>Maker Fee</th>
                           <th>Taker Fee</th>
+                          <th>Price</th>
                           <th>Last Updated</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.all_free.map((fee, index) => (
-                          <tr key={index}>
-                            <td><strong>{fee.symbol}</strong></td>
-                            <td>{fee.maker_fee}</td>
-                            <td>{fee.taker_fee}</td>
-                            <td className="fee-date">{new Date(fee.updated_at).toLocaleDateString()}</td>
-                          </tr>
-                        ))}
+                        {data.all_free.map((fee, index) => {
+                          const priceData = prices[fee.symbol]
+                          const priceClass = priceData?.direction === 'up' ? 'price-up' : priceData?.direction === 'down' ? 'price-down' : ''
+
+                          return (
+                            <tr key={index}>
+                              <td><strong>{fee.symbol}</strong></td>
+                              <td>{fee.maker_fee}</td>
+                              <td>{fee.taker_fee}</td>
+                              <td className={`fee-price ${priceClass}`}>
+                                {priceData ? priceData.price.toFixed(6) : '-'}
+                              </td>
+                              <td className="fee-date">{new Date(fee.updated_at).toLocaleDateString()}</td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
