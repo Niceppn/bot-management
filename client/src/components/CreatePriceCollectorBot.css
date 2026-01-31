@@ -132,23 +132,54 @@
 }
 
 .socket-option {
-  display: flex;
-  align-items: flex-start;
+  position: relative;
+  display: block;
 }
 
 .socket-option input[type="radio"] {
-  margin-top: 0.25rem;
-  margin-right: 0.75rem;
+  position: absolute;
+  opacity: 0;
   cursor: pointer;
 }
 
 .socket-label {
-  flex: 1;
+  display: block;
   padding: 1rem;
+  padding-left: 3rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+/* Custom Radio Button */
+.socket-label::before {
+  content: '';
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+/* Radio Button Selected Dot */
+.socket-label::after {
+  content: '';
+  position: absolute;
+  left: 1.375rem;
+  top: 50%;
+  transform: translateY(-50%) scale(0);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #8b5cf6;
   transition: all 0.2s ease;
 }
 
@@ -157,20 +188,36 @@
   border-color: #8b5cf6;
 }
 
+.socket-option input[type="radio"]:checked + .socket-label::before {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.2);
+}
+
+.socket-option input[type="radio"]:checked + .socket-label::after {
+  transform: translateY(-50%) scale(1);
+}
+
 .socket-label:hover {
   background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+.socket-label:hover::before {
+  border-color: rgba(139, 92, 246, 0.5);
 }
 
 .socket-name {
   font-weight: 600;
   color: #e0e7ff;
   margin-bottom: 0.25rem;
+  font-size: 1rem;
 }
 
 .socket-endpoint {
   font-size: 0.8rem;
   color: #6b7280;
   font-family: 'Monaco', 'Menlo', monospace;
+  word-break: break-all;
 }
 
 .form-actions {
@@ -280,6 +327,19 @@
 
   .socket-label {
     padding: 0.875rem;
+    padding-left: 2.75rem;
+  }
+
+  .socket-label::before {
+    left: 0.875rem;
+    width: 18px;
+    height: 18px;
+  }
+
+  .socket-label::after {
+    left: 1.1875rem;
+    width: 9px;
+    height: 9px;
   }
 
   .socket-name {
@@ -288,6 +348,7 @@
 
   .socket-endpoint {
     font-size: 0.75rem;
+    word-break: break-all;
   }
 
   .form-actions {
