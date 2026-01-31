@@ -1,0 +1,119 @@
+╔══════════════════════════════════════════════════════════╗
+║          Bot Manager - Deploy to Lightsail 2GB          ║
+║                   Quick Summary                          ║
+╚══════════════════════════════════════════════════════════╝
+
+📋 YOUR SETUP
+─────────────────────────────────────────────────────────
+Plan: Lightsail $10/month
+├─ RAM: 2GB (+ 1GB Swap)
+├─ CPU: 1 vCPU
+├─ Storage: 60GB SSD
+└─ Optimal: 2-3 bots
+
+🎯 EXPECTED PERFORMANCE
+─────────────────────────────────────────────────────────
+2 Bots:
+├─ RAM: ~800 MB (40% usage) ✅ Excellent
+├─ CPU: ~20-30%
+└─ Disk: ~200 MB/day
+
+3 Bots:
+├─ RAM: ~1.1 GB (55% usage) ✅ Very Good
+├─ CPU: ~30-40%
+└─ Disk: ~300 MB/day
+
+📦 FILES PREPARED FOR YOU
+─────────────────────────────────────────────────────────
+deploy/
+├─ LIGHTSAIL-2GB-GUIDE.md      ← 📖 Full guide (Thai)
+├─ QUICKSTART.md               ← ⚡ 10-min quick start
+├─ CHEATSHEET.md               ← 📝 Commands cheat sheet
+├─ lightsail-2gb-setup.sh      ← 🔧 Optimization script
+├─ setup-vps.sh                ← ⚙️  System setup
+├─ install-deps.sh             ← 📦 Install dependencies
+├─ start-production.sh         ← 🚀 Start system
+├─ backup.sh                   ← 💾 Backup data
+├─ ecosystem.config.js         ← ⚡ PM2 config
+└─ nginx.conf                  ← 🌐 Nginx config
+
+🚀 DEPLOYMENT STEPS (3 MAIN STEPS)
+─────────────────────────────────────────────────────────
+1️⃣ CREATE LIGHTSAIL INSTANCE
+   → https://lightsail.aws.amazon.com
+   → Ubuntu 22.04, $10/month plan
+
+2️⃣ UPLOAD PROJECT
+   From Mac:
+   $ cd /Users/Macbook
+   $ tar -czf bot-manager.tar.gz Bot_Manager/
+   $ scp bot-manager.tar.gz ubuntu@YOUR_IP:/tmp/
+
+3️⃣ SETUP & START
+   On Lightsail:
+   $ cd /opt/bot-manager
+   $ bash deploy/install-deps.sh
+   $ bash deploy/lightsail-2gb-setup.sh
+   $ bash deploy/start-production.sh
+
+✅ DONE! Open: http://YOUR_IP
+
+🔐 DEFAULT LOGIN
+─────────────────────────────────────────────────────────
+Username: admin
+Password: admin123
+
+⚠️  CHANGE PASSWORD IMMEDIATELY!
+
+📊 AFTER DEPLOYMENT
+─────────────────────────────────────────────────────────
+✓ Check status:
+  $ pm2 status
+  $ bash deploy/check-resources.sh
+
+✓ Create first bot:
+  → Web UI → + Create Price Collector
+  → Name: BTC Spot Collector
+  → Symbol: btcusdc
+  → Socket: Spot
+  → ▶ Start
+
+✓ Monitor:
+  → Dashboard shows CPU/RAM/Disk usage
+  → pm2 logs bot-manager-api
+
+🛠️ USEFUL COMMANDS
+─────────────────────────────────────────────────────────
+pm2 status                    # Check status
+pm2 logs                      # View logs
+pm2 restart bot-manager-api   # Restart backend
+bash deploy/check-resources.sh # Check RAM/CPU/Disk
+bash deploy/backup.sh         # Backup data
+
+📖 FULL DOCUMENTATION
+─────────────────────────────────────────────────────────
+Read these files for more details:
+1. deploy/LIGHTSAIL-2GB-GUIDE.md (คู่มือเต็มภาษาไทย)
+2. deploy/CHEATSHEET.md (คำสั่งที่ใช้บ่อย)
+3. deploy/README.md (Technical details)
+
+💰 COST
+─────────────────────────────────────────────────────────
+Monthly: $10 (fixed price, no surprises)
+Includes: 3TB traffic, backups available
+
+🎁 BONUS
+─────────────────────────────────────────────────────────
+First 3 months FREE for new AWS accounts!
+
+📞 NEED HELP?
+─────────────────────────────────────────────────────────
+1. Check: pm2 logs bot-manager-api
+2. Check: bash deploy/check-resources.sh
+3. Read: deploy/LIGHTSAIL-2GB-GUIDE.md
+
+🎉 YOU'RE READY TO DEPLOY!
+─────────────────────────────────────────────────────────
+Start with: cat deploy/LIGHTSAIL-2GB-GUIDE.md
+
+Good luck! 🚀

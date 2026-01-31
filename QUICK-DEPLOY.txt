@@ -1,0 +1,26 @@
+╔══════════════════════════════════════════════════════════╗
+║           Quick Deploy Commands - คัดลอกไปรันเลย!       ║
+╚══════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+จาก Mac Terminal:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+cd /Users/Macbook && tar -czf bot-manager.tar.gz --exclude='Bot_Manager/node_modules' --exclude='Bot_Manager/server/data' --exclude='Bot_Manager/.git' Bot_Manager/ && scp bot-manager.tar.gz bitnami@47.129.144.109:/tmp/ && ssh bitnami@47.129.144.109
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+บน Server (หลัง SSH):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+sudo mkdir -p /opt/bot-manager && sudo chown -R bitnami:bitnami /opt/bot-manager && cd /opt/bot-manager && tar -xzf /tmp/bot-manager.tar.gz --strip-components=1 && rm /tmp/bot-manager.tar.gz && bash deploy/auto-setup.sh
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ตอบคำถาม:
+- VPS IP: 47.129.144.109
+- Domain: [กด Enter]
+
+รอ 5-10 นาที แล้วเปิด: http://47.129.144.109
+Login: admin / admin123
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

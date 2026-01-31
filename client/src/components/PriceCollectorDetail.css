@@ -1,0 +1,270 @@
+.price-collector-detail {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 2rem;
+}
+
+.header-info {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+}
+
+.header-info h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0 0 0.25rem 0;
+}
+
+.bot-config {
+  color: #8b92a7;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.tab {
+  padding: 0.875rem 1.5rem;
+  background: transparent;
+  border: none;
+  color: #8b92a7;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+
+.tab:hover {
+  color: #a5b4fc;
+}
+
+.tab.active {
+  color: #a5b4fc;
+  border-bottom-color: #8b5cf6;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.side-distribution {
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.side-distribution h3 {
+  color: #e0e7ff;
+  font-size: 1.25rem;
+  margin: 0 0 1.5rem 0;
+}
+
+.distribution-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.distribution-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.distribution-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #8b92a7;
+}
+
+.buy-dot, .sell-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.buy-dot {
+  background: #10b981;
+}
+
+.sell-dot {
+  background: #ef4444;
+}
+
+.distribution-bar {
+  height: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.distribution-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.distribution-fill.buy {
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+}
+
+.distribution-fill.sell {
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+}
+
+.recent-trades {
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.recent-trades h3 {
+  color: #e0e7ff;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.section-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.trades-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.trades-table thead {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.trades-table th {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #8b92a7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.trades-table td {
+  padding: 0.875rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: #e0e7ff;
+  font-size: 0.9rem;
+}
+
+.trades-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.trade-side {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.trade-side.buy {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.trade-side.sell {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.price {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-weight: 600;
+}
+
+.logs-section {
+  padding: 1.5rem;
+  border-radius: 16px;
+}
+
+.logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.logs-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e0e7ff;
+  margin: 0;
+}
+
+.logs-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.log-viewer {
+  background: rgba(15, 15, 35, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  height: 500px;
+  overflow-y: auto;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 0.875rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-style: italic;
+}
