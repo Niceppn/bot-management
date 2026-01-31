@@ -216,7 +216,7 @@ router.get('/stats', verifyToken, (req, res) => {
     const db = getDatabase()
 
     const totalFees = db.prepare('SELECT COUNT(*) as count FROM promotion_fees').get()
-    const makerFreeCount = db.prepare('SELECT COUNT(*) as count FROM promotion_fees WHERE maker_fee = "0%"').get()
+    const makerFreeCount = db.prepare("SELECT COUNT(*) as count FROM promotion_fees WHERE maker_fee = '0%'").get()
     const unreadRemovals = db.prepare('SELECT COUNT(*) as count FROM promotion_fee_removals WHERE is_read = 0').get()
     const totalRemovals = db.prepare('SELECT COUNT(*) as count FROM promotion_fee_removals').get()
 
