@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { botAPI, simulateBotAPI } from '../services/api'
 import Sidebar from './Sidebar'
+import SimplePNLChart from './SimplePNLChart'
 import './SimulateBotDetail.css'
 
 function SimulateBotDetail({ onLogout }) {
@@ -15,6 +16,9 @@ function SimulateBotDetail({ onLogout }) {
   const [activeTab, setActiveTab] = useState('overview')
   const [editMode, setEditMode] = useState(false)
   const [editConfig, setEditConfig] = useState({})
+  const [pnlHistory, setPnlHistory] = useState([])
+  const [recentTrades, setRecentTrades] = useState([])
+  const pnlHistoryRef = useRef([])
 
   useEffect(() => {
     loadBotData()
@@ -103,7 +107,8 @@ function SimulateBotDetail({ onLogout }) {
       unfilled: 0,
       totalPnl: 0,
       activeOrders: [],
-      pendingOrders: []
+      pendingOrders: [],
+      trades: []
     }
 
     if (!logs || logs.length === 0) {
@@ -114,15 +119,45 @@ function SimulateBotDetail({ onLogout }) {
     logs.forEach(log => {
       const msg = log.message
 
-      // Count wins/losses
+      // Count wins/losses and track trades
       if (msg.includes('TP WIN') || msg.includes('WIN')) {
         stats.win++
+        const pnlMatch = msg.match(/PNL:\s*\$?(-?\d+\.?\d*)/i)
+        if (pnlMatch) {
+          stats.trades.push({
+            time: log.timestamp,
+            type: 'WIN',
+            pnl: parseFloat(pnlMatch[1]),
+            message: msg
+          })
+        }
       } else if (msg.includes('STOP LOSS') || msg.includes('LOSS')) {
         stats.loss++
+        const pnlMatch = msg.match(/PNL:\s*\$?(-?\d+\.?\d*)/i)
+        if (pnlMatch) {
+          stats.trades.push({
+            time: log.timestamp,
+            type: 'LOSS',
+            pnl: parseFloat(pnlMatch[1]),
+            message: msg
+          })
+        }
       } else if (msg.includes('BREAKEVEN')) {
         stats.breakeven++
+        stats.trades.push({
+          time: log.timestamp,
+          type: 'BREAKEVEN',
+          pnl: 0,
+          message: msg
+        })
       } else if (msg.includes('UNFILLED')) {
         stats.unfilled++
+        stats.trades.push({
+          time: log.timestamp,
+          type: 'UNFILLED',
+          pnl: 0,
+          message: msg
+        })
       }
 
       // Extract PNL from log messages like "PNL: $0.1234 | Total: $5.6789"
@@ -163,9 +198,37 @@ function SimulateBotDetail({ onLogout }) {
     return stats
   }
 
+  const handleResetDashboard = () => {
+    if (window.confirm('Are you sure you want to reset dashboard stats? This will clear PNL history and recent trades display.')) {
+      setPnlHistory([])
+      setRecentTrades([])
+      pnlHistoryRef.current = []
+      alert('Dashboard reset successfully!')
+    }
+  }
+
   const stats = parseLogStats()
   const totalTrades = stats.win + stats.loss + stats.breakeven
   const winRate = totalTrades > 0 ? (stats.win / totalTrades * 100) : 0
+
+  // Update PNL history for chart
+  useEffect(() => {
+    if (stats.totalPnl !== 0 || pnlHistoryRef.current.length > 0) {
+      const lastPnl = pnlHistoryRef.current[pnlHistoryRef.current.length - 1]
+      if (!lastPnl || lastPnl.pnl !== stats.totalPnl) {
+        const newPoint = { time: Date.now(), pnl: stats.totalPnl }
+        pnlHistoryRef.current = [...pnlHistoryRef.current, newPoint].slice(-50) // Keep last 50 points
+        setPnlHistory(pnlHistoryRef.current)
+      }
+    }
+  }, [stats.totalPnl])
+
+  // Update recent trades
+  useEffect(() => {
+    if (stats.trades.length > 0) {
+      setRecentTrades(stats.trades.slice(-10).reverse()) // Last 10 trades
+    }
+  }, [stats.trades.length])
 
   if (isLoading) {
     return (
@@ -257,26 +320,69 @@ function SimulateBotDetail({ onLogout }) {
           {/* Tab Content */}
           {activeTab === 'overview' && (
             <div className="tab-content">
+              {/* Header with Reset Button */}
+              <div className="overview-header">
+                <h2>Dashboard Overview</h2>
+                <button className="btn btn-reset" onClick={handleResetDashboard}>
+                  🔄 Reset Dashboard
+                </button>
+              </div>
+
               {/* Stats Cards */}
               <div className="stats-grid">
                 <div className="stat-card">
-                  <div className="stat-label">Total PNL</div>
+                  <div className="stat-label">💰 Total PNL</div>
                   <div className={`stat-value ${stats.totalPnl >= 0 ? 'positive' : 'negative'}`}>
                     ${stats.totalPnl.toFixed(4)}
                   </div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-label">Win Rate</div>
+                  <div className="stat-label">📈 Win Rate</div>
                   <div className="stat-value">{winRate.toFixed(1)}%</div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-label">Total Trades</div>
+                  <div className="stat-label">📊 Total Trades</div>
                   <div className="stat-value">{totalTrades}</div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-label">Active Orders</div>
+                  <div className="stat-label">🎯 Active Orders</div>
                   <div className="stat-value">{stats.activeOrders.length}</div>
                 </div>
+              </div>
+
+              {/* PNL Chart */}
+              <div className="chart-section">
+                <h3>📈 PNL History (Real-time)</h3>
+                <div className="chart-container">
+                  <SimplePNLChart data={pnlHistory} width={800} height={250} />
+                </div>
+              </div>
+
+              {/* Recent Trades */}
+              <div className="recent-trades-section">
+                <h3>📝 Recent Trades</h3>
+                {recentTrades.length === 0 ? (
+                  <div className="empty-state-small">
+                    <p>No trades yet</p>
+                  </div>
+                ) : (
+                  <div className="trades-list">
+                    {recentTrades.map((trade, idx) => (
+                      <div key={idx} className={`trade-item ${trade.type.toLowerCase()}`}>
+                        <div className="trade-icon">
+                          {trade.type === 'WIN' ? '✅' : trade.type === 'LOSS' ? '❌' : trade.type === 'BREAKEVEN' ? '😐' : '⏳'}
+                        </div>
+                        <div className="trade-details">
+                          <div className="trade-type">{trade.type}</div>
+                          <div className="trade-time">{new Date(trade.time).toLocaleTimeString()}</div>
+                        </div>
+                        <div className={`trade-pnl ${trade.pnl >= 0 ? 'positive' : 'negative'}`}>
+                          {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(4)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Win/Loss Breakdown */}
