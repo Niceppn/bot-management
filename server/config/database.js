@@ -162,5 +162,108 @@ export const initializeDatabase = () => {
     CREATE INDEX IF NOT EXISTS idx_promotion_fee_removals_is_read ON promotion_fee_removals(is_read)
   `)
 
+  // Create trading_configs table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS trading_configs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bot_id INTEGER UNIQUE NOT NULL,
+      confidence_threshold REAL DEFAULT 0.40,
+      capital_per_trade REAL DEFAULT 200,
+      holding_time INTEGER DEFAULT 2000,
+      profit_target_pct REAL DEFAULT 0.00015,
+      stop_loss_pct REAL DEFAULT 0.009,
+      maker_order_timeout INTEGER DEFAULT 60,
+      max_positions INTEGER DEFAULT 2,
+      model_id INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (bot_id) REFERENCES bots(id) ON DELETE CASCADE,
+      FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE SET NULL
+    )
+  `)
+
+  // Create models table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS models (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      file_path TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      description TEXT,
+      metadata TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+
+  // Create trading_orders table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS trading_orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bot_id INTEGER NOT NULL,
+      order_id TEXT,
+      symbol TEXT NOT NULL,
+      side TEXT NOT NULL,
+      entry_price REAL,
+      take_profit REAL,
+      stop_loss REAL,
+      quantity REAL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      pnl REAL DEFAULT 0,
+      confidence REAL,
+      entry_time TEXT,
+      exit_time TEXT,
+      exit_reason TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (bot_id) REFERENCES bots(id) ON DELETE CASCADE
+    )
+  `)
+
+  // Create trading_stats table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS trading_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bot_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      total_trades INTEGER DEFAULT 0,
+      wins INTEGER DEFAULT 0,
+      losses INTEGER DEFAULT 0,
+      total_pnl REAL DEFAULT 0,
+      win_rate REAL DEFAULT 0,
+      avg_win REAL DEFAULT 0,
+      avg_loss REAL DEFAULT 0,
+      max_drawdown REAL DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (bot_id) REFERENCES bots(id) ON DELETE CASCADE,
+      UNIQUE(bot_id, date)
+    )
+  `)
+
+  // Indexes for trading tables
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_trading_configs_bot_id ON trading_configs(bot_id)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_models_symbol ON models(symbol)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_trading_orders_bot_id ON trading_orders(bot_id)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_trading_orders_status ON trading_orders(status)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_trading_orders_symbol ON trading_orders(symbol)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_trading_stats_bot_id ON trading_stats(bot_id)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_trading_stats_date ON trading_stats(date)
+  `)
+
   console.log('✅ Database schema initialized')
 }

@@ -1,4 +1,4 @@
-function BotCard({ bot, onAction, onViewDetails, onCategoryChange, onDelete }) {
+function BotCard({ bot, onAction, onViewDetails, onCategoryChange, onDelete, stats }) {
   const formatUptime = (startedAt) => {
     if (!startedAt) return '-'
     const start = new Date(startedAt)
@@ -11,7 +11,7 @@ function BotCard({ bot, onAction, onViewDetails, onCategoryChange, onDelete }) {
     return `${minutes}m`
   }
 
-  const CATEGORIES = ['Collector', 'Test', 'Trading', 'Monitor', 'Uncategorized']
+  const CATEGORIES = ['Collector', 'Test', 'Trading', 'Monitor', 'Production', 'Uncategorized']
 
   const handleCategoryChange = (e) => {
     const newCategory = e.target.value
@@ -25,10 +25,16 @@ function BotCard({ bot, onAction, onViewDetails, onCategoryChange, onDelete }) {
     onDelete(bot)
   }
 
+  // Check if trading bot
+  const isTradingBot = bot.bot_type === 'trading'
+
   return (
-    <div className="bot-card glass">
+    <div className={`bot-card glass ${isTradingBot ? 'trading-bot' : ''}`}>
       <div className="bot-card-header">
-        <h3>{bot.name}</h3>
+        <div>
+          <h3>{bot.name}</h3>
+          {isTradingBot && <span className="bot-type-badge">🤖 AI Trading</span>}
+        </div>
         <span className={`status-badge ${bot.status}`}>
           <span className="status-indicator"></span>
           {bot.status === 'running' ? 'Running' : 'Stopped'}
@@ -50,16 +56,42 @@ function BotCard({ bot, onAction, onViewDetails, onCategoryChange, onDelete }) {
         </select>
       </div>
 
-      <div className="bot-metrics">
-        <div className="metric">
-          <span className="metric-label">Uptime</span>
-          <span className="metric-value">{formatUptime(bot.started_at)}</span>
+      {/* Trading Bot Stats */}
+      {isTradingBot && stats ? (
+        <div className="bot-metrics trading-metrics">
+          <div className="metric">
+            <span className="metric-label">Today PNL</span>
+            <span className={`metric-value ${stats.today?.total_pnl >= 0 ? 'positive' : 'negative'}`}>
+              ${stats.today?.total_pnl?.toFixed(2) || '0.00'}
+            </span>
+          </div>
+          <div className="metric">
+            <span className="metric-label">Win Rate</span>
+            <span className="metric-value">
+              {stats.today?.win_rate?.toFixed(0) || '0'}%
+            </span>
+          </div>
+          <div className="metric">
+            <span className="metric-label">Trades</span>
+            <span className="metric-value">{stats.today?.total_trades || 0}</span>
+          </div>
+          <div className="metric">
+            <span className="metric-label">Active</span>
+            <span className="metric-value">{stats.active_orders || 0}</span>
+          </div>
         </div>
-        <div className="metric">
-          <span className="metric-label">Restarts</span>
-          <span className="metric-value">{bot.restart_count}</span>
+      ) : (
+        <div className="bot-metrics">
+          <div className="metric">
+            <span className="metric-label">Uptime</span>
+            <span className="metric-value">{formatUptime(bot.started_at)}</span>
+          </div>
+          <div className="metric">
+            <span className="metric-label">Restarts</span>
+            <span className="metric-value">{bot.restart_count}</span>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="bot-actions">
         {bot.status === 'stopped' ? (

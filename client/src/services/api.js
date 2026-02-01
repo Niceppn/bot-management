@@ -242,3 +242,117 @@ export const promotionFeeAPI = {
     return response.data || {}
   }
 }
+
+// Trading API
+export const tradingAPI = {
+  // Config endpoints
+  getConfig: async (botId) => {
+    const response = await apiRequest(`/trading/bots/${botId}/config`)
+    return response.data
+  },
+
+  updateConfig: async (botId, config) => {
+    return apiRequest(`/trading/bots/${botId}/config`, {
+      method: 'PUT',
+      body: JSON.stringify(config)
+    })
+  },
+
+  validateConfig: async (botId, config) => {
+    return apiRequest(`/trading/bots/${botId}/config/validate`, {
+      method: 'POST',
+      body: JSON.stringify(config)
+    })
+  },
+
+  // Orders endpoints
+  getOrders: async (botId, limit = 100) => {
+    const params = new URLSearchParams({ limit: limit.toString() })
+    const response = await apiRequest(`/trading/bots/${botId}/orders?${params}`)
+    return response.data || []
+  },
+
+  getOrderHistory: async (botId, limit = 100, offset = 0) => {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString()
+    })
+    const response = await apiRequest(`/trading/bots/${botId}/orders/history?${params}`)
+    return response.data
+  },
+
+  // Stats endpoints
+  getStats: async (botId, days = 30) => {
+    const params = new URLSearchParams({ days: days.toString() })
+    const response = await apiRequest(`/trading/bots/${botId}/stats?${params}`)
+    return response.data
+  },
+
+  getPNL: async (botId, days = 7) => {
+    const params = new URLSearchParams({ days: days.toString() })
+    const response = await apiRequest(`/trading/bots/${botId}/pnl?${params}`)
+    return response.data || []
+  }
+}
+
+// Models API
+export const modelsAPI = {
+  getAll: async () => {
+    const response = await apiRequest('/models')
+    return response.data || []
+  },
+
+  getById: async (modelId) => {
+    const response = await apiRequest(`/models/${modelId}`)
+    return response.data
+  },
+
+  upload: async (file, name, symbol, description = '') => {
+    const formData = new FormData()
+    formData.append('model', file)
+    formData.append('name', name)
+    formData.append('symbol', symbol)
+    formData.append('description', description)
+
+    const token = getToken()
+    const response = await fetch(`${API_BASE_URL}/models/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
+      body: formData
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to upload model')
+    }
+
+    return data
+  },
+
+  update: async (modelId, modelData) => {
+    return apiRequest(`/models/${modelId}`, {
+      method: 'PUT',
+      body: JSON.stringify(modelData)
+    })
+  },
+
+  delete: async (modelId) => {
+    return apiRequest(`/models/${modelId}`, {
+      method: 'DELETE'
+    })
+  },
+
+  assignToBot: async (botId, modelId) => {
+    return apiRequest(`/models/assign/${botId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ model_id: modelId })
+    })
+  },
+
+  getBySymbol: async (symbol) => {
+    const response = await apiRequest(`/models/symbol/${symbol}`)
+    return response.data || []
+  }
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { botAPI } from '../services/api'
+import { botAPI, tradingAPI } from '../services/api'
 import Sidebar from './Sidebar'
 import BotCard from './BotCard'
 import SystemMonitor from './SystemMonitor'
@@ -10,10 +10,12 @@ import './BotDashboard.css'
 function BotDashboard({ onLogout }) {
   const navigate = useNavigate()
   const [bots, setBots] = useState([])
+  const [botStats, setBotStats] = useState({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [deletingBot, setDeletingBot] = useState(null)
+  const [showCreateMenu, setShowCreateMenu] = useState(false)
 
   useEffect(() => {
     fetchBots()
@@ -25,6 +27,26 @@ function BotDashboard({ onLogout }) {
     try {
       const data = await botAPI.getAll()
       setBots(data)
+
+      // Fetch stats for trading bots
+      const statsPromises = data
+        .filter(bot => bot.bot_type === 'trading')
+        .map(async bot => {
+          try {
+            const stats = await tradingAPI.getStats(bot.id)
+            return { botId: bot.id, stats }
+          } catch (err) {
+            return { botId: bot.id, stats: null }
+          }
+        })
+
+      const statsResults = await Promise.all(statsPromises)
+      const statsMap = {}
+      statsResults.forEach(({ botId, stats }) => {
+        statsMap[botId] = stats
+      })
+      setBotStats(statsMap)
+
       setError('')
     } catch (err) {
       setError(err.message)
@@ -50,6 +72,8 @@ function BotDashboard({ onLogout }) {
   const handleViewDetails = (bot) => {
     if (bot.bot_type === 'price_collector') {
       navigate(`/bots/${bot.id}/price-collector`)
+    } else if (bot.bot_type === 'trading') {
+      navigate(`/bots/${bot.id}/trading`)
     } else {
       navigate(`/bots/${bot.id}`)
     }
@@ -111,12 +135,24 @@ function BotDashboard({ onLogout }) {
                   ))}
                 </select>
               </div>
-              <button
-                className="btn btn-primary"
-                onClick={() => navigate('/bots/create/price-collector')}
-              >
-                + Create Price Collector
-              </button>
+              <div className="create-bot-dropdown">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setShowCreateMenu(!showCreateMenu)}
+                >
+                  + Create Bot ▼
+                </button>
+                {showCreateMenu && (
+                  <div className="create-bot-menu">
+                    <button onClick={() => { navigate('/bots/create/trading'); setShowCreateMenu(false) }}>
+                      🤖 Trading Bot
+                    </button>
+                    <button onClick={() => { navigate('/bots/create/price-collector'); setShowCreateMenu(false) }}>
+                      📊 Price Collector
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </header>
 
@@ -139,6 +175,7 @@ function BotDashboard({ onLogout }) {
                 <BotCard
                   key={bot.id}
                   bot={bot}
+                  stats={botStats[bot.id]}
                   onAction={handleBotAction}
                   onViewDetails={() => handleViewDetails(bot)}
                   onCategoryChange={handleCategoryChange}

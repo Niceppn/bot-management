@@ -5,6 +5,9 @@ import BotDashboard from './components/BotDashboard'
 import BotDetail from './components/BotDetail'
 import IDETempBot from './components/IDETempBot'
 import PriceCollectorDetail from './components/PriceCollectorDetail'
+import CreateTradingBot from './components/CreateTradingBot'
+import TradingBotDetail from './components/TradingBotDetail'
+import ModelManager from './components/ModelManager'
 import PromotionFees from './components/PromotionFees'
 
 function App() {
@@ -78,6 +81,30 @@ function App() {
           element={
             isAuthenticated ?
               <BotDetail onLogout={handleLogout} /> :
+              <Navigate to="/login" replace />
+          }
+        />
+        <Route
+          path="/bots/create/trading"
+          element={
+            isAuthenticated ?
+              <CreateTradingBot onLogout={handleLogout} /> :
+              <Navigate to="/login" replace />
+          }
+        />
+        <Route
+          path="/bots/:id/trading"
+          element={
+            isAuthenticated ?
+              <TradingBotDetail onLogout={handleLogout} /> :
+              <Navigate to="/login" replace />
+          }
+        />
+        <Route
+          path="/models"
+          element={
+            isAuthenticated ?
+              <ModelManager onLogout={handleLogout} /> :
               <Navigate to="/login" replace />
           }
         />

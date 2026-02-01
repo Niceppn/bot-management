@@ -8,6 +8,8 @@ import tradeRoutes from './routes/trades.js'
 import systemRoutes from './routes/system.js'
 import promotionFeeRoutes from './routes/promotionFees.js'
 import tempBotRoutes from './routes/tempBot.js'
+import tradingRoutes from './routes/trading.js'
+import modelRoutes from './routes/models.js'
 import { initializeDatabase, getDatabase } from './config/database.js'
 
 dotenv.config()
@@ -31,6 +33,8 @@ app.use('/api/trades', tradeRoutes)
 app.use('/api/system', systemRoutes)
 app.use('/api/promotion-fees', promotionFeeRoutes)
 app.use('/api/temp-bot', tempBotRoutes)
+app.use('/api/trading', tradingRoutes)
+app.use('/api/models', modelRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {
