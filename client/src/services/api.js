@@ -356,3 +356,35 @@ export const modelsAPI = {
     return response.data || []
   }
 }
+
+// Simulate Bot API
+export const simulateBotAPI = {
+  create: async (formData) => {
+    const token = getToken()
+    const response = await fetch(`${API_BASE_URL}/simulate-bot/create`, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
+      body: formData // FormData includes file
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to create simulate bot')
+    }
+    return data
+  },
+
+  getConfig: async (botId) => {
+    const response = await apiRequest(`/simulate-bot/${botId}/config`)
+    return response.data
+  },
+
+  updateConfig: async (botId, config) => {
+    return apiRequest(`/simulate-bot/${botId}/config`, {
+      method: 'PUT',
+      body: JSON.stringify(config)
+    })
+  }
+}

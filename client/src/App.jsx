@@ -8,6 +8,8 @@ import PriceCollectorDetail from './components/PriceCollectorDetail'
 import CreateTradingBot from './components/CreateTradingBot'
 import TradingBotDetail from './components/TradingBotDetail'
 import ModelManager from './components/ModelManager'
+import CreateSimulateBot from './components/CreateSimulateBot'
+import SimulateBotDetail from './components/SimulateBotDetail'
 import PromotionFees from './components/PromotionFees'
 
 function App() {
@@ -73,6 +75,22 @@ function App() {
           element={
             isAuthenticated ?
               <PriceCollectorDetail onLogout={handleLogout} /> :
+              <Navigate to="/login" replace />
+          }
+        />
+        <Route
+          path="/bots/create/simulate"
+          element={
+            isAuthenticated ?
+              <CreateSimulateBot onLogout={handleLogout} /> :
+              <Navigate to="/login" replace />
+          }
+        />
+        <Route
+          path="/bots/:id/simulate"
+          element={
+            isAuthenticated ?
+              <SimulateBotDetail onLogout={handleLogout} /> :
               <Navigate to="/login" replace />
           }
         />

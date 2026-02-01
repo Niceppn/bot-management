@@ -74,6 +74,8 @@ function BotDashboard({ onLogout }) {
       navigate(`/bots/${bot.id}/price-collector`)
     } else if (bot.bot_type === 'trading') {
       navigate(`/bots/${bot.id}/trading`)
+    } else if (bot.bot_type === 'simulate') {
+      navigate(`/bots/${bot.id}/simulate`)
     } else {
       navigate(`/bots/${bot.id}`)
     }
@@ -146,6 +148,9 @@ function BotDashboard({ onLogout }) {
                   <div className="create-bot-menu">
                     <button onClick={() => { navigate('/bots/create/trading'); setShowCreateMenu(false) }}>
                       🤖 Trading Bot
+                    </button>
+                    <button onClick={() => { navigate('/bots/create/simulate'); setShowCreateMenu(false) }}>
+                      🎮 Simulate Bot
                     </button>
                     <button onClick={() => { navigate('/bots/create/price-collector'); setShowCreateMenu(false) }}>
                       📊 Price Collector

@@ -242,6 +242,34 @@ export const initializeDatabase = () => {
     )
   `)
 
+  // Create simulate_bot_configs table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS simulate_bot_configs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bot_id INTEGER UNIQUE NOT NULL,
+      symbol TEXT NOT NULL,
+      model_path TEXT NOT NULL,
+      api_key TEXT NOT NULL,
+      secret_key TEXT NOT NULL,
+      telegram_token TEXT,
+      telegram_chat_id TEXT,
+      confidence_threshold REAL DEFAULT 0.40,
+      capital_per_trade REAL DEFAULT 200,
+      holding_time INTEGER DEFAULT 2000,
+      profit_target_pct REAL DEFAULT 0.00015,
+      stop_loss_pct REAL DEFAULT 0.009,
+      maker_buy_offset_pct REAL DEFAULT 0.00001,
+      maker_order_timeout INTEGER DEFAULT 60,
+      max_positions INTEGER DEFAULT 2,
+      cooldown_seconds INTEGER DEFAULT 180,
+      status_report_interval INTEGER DEFAULT 3800,
+      use_testnet INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (bot_id) REFERENCES bots(id) ON DELETE CASCADE
+    )
+  `)
+
   // Indexes for trading tables
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_trading_configs_bot_id ON trading_configs(bot_id)
@@ -263,6 +291,14 @@ export const initializeDatabase = () => {
   `)
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_trading_stats_date ON trading_stats(date)
+  `)
+
+  // Indexes for simulate_bot_configs
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_simulate_configs_bot_id ON simulate_bot_configs(bot_id)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_simulate_configs_symbol ON simulate_bot_configs(symbol)
   `)
 
   console.log('✅ Database schema initialized')
