@@ -36,9 +36,18 @@ function CreateSimulateBot({ onLogout }) {
 
   const handleInputChange = (e) => {
     const { name, value, type } = e.target
+
+    let processedValue = value
+
+    if (type === 'number') {
+      // Parse number and handle empty/invalid values
+      const numValue = parseFloat(value)
+      processedValue = isNaN(numValue) ? '' : numValue
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'number' ? parseFloat(value) : value
+      [name]: processedValue
     }))
   }
 
@@ -81,9 +90,31 @@ function CreateSimulateBot({ onLogout }) {
       const data = new FormData()
       data.append('model', modelFile)
 
-      // Append all form data
+      // Default values for numeric fields
+      const defaults = {
+        confidence_threshold: 0.40,
+        capital_per_trade: 200,
+        holding_time: 2000,
+        profit_target_pct: 0.00015,
+        stop_loss_pct: 0.009,
+        maker_buy_offset_pct: 0.00001,
+        maker_order_timeout: 60,
+        max_positions: 2,
+        cooldown_seconds: 180,
+        use_testnet: 1
+      }
+
+      // Append all form data with proper type conversion
       Object.keys(formData).forEach(key => {
-        data.append(key, formData[key])
+        let value = formData[key]
+
+        // Convert numeric fields and ensure they have valid values
+        if (key in defaults) {
+          const numValue = parseFloat(value)
+          value = (isNaN(numValue) || value === '') ? defaults[key] : numValue
+        }
+
+        data.append(key, String(value))
       })
 
       await simulateBotAPI.create(data)
