@@ -95,94 +95,78 @@
   margin-bottom: calc(var(--spacing-unit) * 3);
 }
 
-/* Slot Usage Banner - Prominent Display */
+/* Slot Usage Banner - Compact Display */
 .slot-usage-banner {
-  padding: calc(var(--spacing-unit) * 3);
-  border-radius: calc(var(--spacing-unit) * 2);
-  margin-bottom: calc(var(--spacing-unit) * 4);
-  background: linear-gradient(135deg, var(--void-light) 0%, var(--void) 100%);
-  border: 2px solid var(--guard);
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+  padding: calc(var(--spacing-unit) * 2);
+  border-radius: calc(var(--spacing-unit) * 1.5);
+  margin-bottom: calc(var(--spacing-unit) * 3);
+  background: var(--void-light);
+  border: 1px solid var(--graphite);
 }
 
 .banner-left {
-  margin-bottom: calc(var(--spacing-unit) * 2);
+  margin-bottom: calc(var(--spacing-unit) * 1.5);
 }
 
 .banner-left h3 {
   color: #FFFFFF;
-  font-size: 1.5rem;
-  font-weight: 400;
-  margin: 0 0 calc(var(--spacing-unit) * 0.5) 0;
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
   font-family: var(--font-heading);
 }
 
 .banner-subtitle {
-  color: var(--platinum);
-  font-size: 0.95rem;
-  margin: 0;
+  display: none; /* Hide subtitle for compact design */
 }
 
 .banner-slots {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: calc(var(--spacing-unit) * 2);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: calc(var(--spacing-unit) * 1.5);
 }
 
 .slot-banner {
-  padding: calc(var(--spacing-unit) * 3);
-  border-radius: calc(var(--spacing-unit) * 1.5);
+  padding: calc(var(--spacing-unit) * 1.5);
+  border-radius: calc(var(--spacing-unit));
   background: var(--void);
-  border: 2px solid var(--graphite);
-  transition: var(--transition-normal);
+  border: 1px solid var(--graphite);
+  transition: var(--transition-fast);
 }
 
 .slot-banner.slot-active {
   border-color: var(--guard);
-  background: var(--guard-glow);
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
-  animation: pulse-glow 2s ease-in-out infinite;
+  background: rgba(16, 185, 129, 0.05);
 }
 
 .slot-banner.slot-cooldown {
   border-color: var(--alert-warning);
-  background: var(--alert-warning-glow);
+  background: rgba(251, 191, 36, 0.05);
 }
 
 .slot-banner.slot-ready {
-  border-color: var(--ice);
-  background: var(--ice-glow);
-}
-
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
-  }
-  50% {
-    box-shadow: 0 4px 24px rgba(16, 185, 129, 0.4);
-  }
+  border-color: var(--graphite);
+  background: var(--void);
 }
 
 .slot-banner-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: calc(var(--spacing-unit) * 2);
-  padding-bottom: calc(var(--spacing-unit) * 1.5);
-  border-bottom: 1px solid var(--graphite);
+  margin-bottom: calc(var(--spacing-unit));
 }
 
 .slot-banner-label {
-  font-size: 1.1rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: #FFFFFF;
+  color: var(--platinum-light);
   font-family: var(--font-heading);
 }
 
 .slot-banner-badge {
-  padding: calc(var(--spacing-unit) * 0.75) calc(var(--spacing-unit) * 2);
-  border-radius: calc(var(--spacing-unit) * 2);
-  font-size: 0.75rem;
+  padding: calc(var(--spacing-unit) * 0.5) calc(var(--spacing-unit) * 1.25);
+  border-radius: calc(var(--spacing-unit) * 1.5);
+  font-size: 0.7rem;
   font-weight: 600;
   font-family: var(--font-data);
   text-transform: uppercase;
@@ -191,50 +175,33 @@
 .slot-banner-badge.active {
   background: var(--guard);
   color: #FFFFFF;
-  animation: badge-pulse 2s ease-in-out infinite;
-}
-
-@keyframes badge-pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
 }
 
 .slot-banner-status {
   display: flex;
   align-items: center;
-  gap: calc(var(--spacing-unit) * 2);
-  padding: calc(var(--spacing-unit) * 2);
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: calc(var(--spacing-unit));
+  gap: calc(var(--spacing-unit));
 }
 
 .status-icon-big {
-  font-size: 2rem;
+  font-size: 1.25rem;
 }
 
 .status-text-big {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #FFFFFF;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--platinum-light);
   font-family: var(--font-data);
+}
+
+.slot-banner.slot-active .status-text-big {
+  color: var(--guard);
+  font-weight: 600;
 }
 
 .slot-banner.slot-cooldown .status-text-big {
   color: var(--alert-warning);
-  animation: countdown-blink 1s ease-in-out infinite;
-}
-
-@keyframes countdown-blink {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
+  font-weight: 600;
 }
 
 .stat-card {
@@ -1068,35 +1035,37 @@
 
   /* Slot Usage Banner Mobile */
   .slot-usage-banner {
-    padding: calc(var(--spacing-unit) * 2);
+    padding: calc(var(--spacing-unit) * 1.5);
   }
 
   .banner-left h3 {
-    font-size: 1.25rem;
-  }
-
-  .banner-subtitle {
-    font-size: 0.875rem;
+    font-size: 0.9rem;
   }
 
   .banner-slots {
     grid-template-columns: 1fr;
+    gap: calc(var(--spacing-unit));
   }
 
   .slot-banner {
-    padding: calc(var(--spacing-unit) * 2);
+    padding: calc(var(--spacing-unit) * 1.25);
   }
 
   .slot-banner-label {
-    font-size: 1rem;
+    font-size: 0.8rem;
+  }
+
+  .slot-banner-badge {
+    font-size: 0.65rem;
+    padding: calc(var(--spacing-unit) * 0.4) calc(var(--spacing-unit));
   }
 
   .status-icon-big {
-    font-size: 1.5rem;
+    font-size: 1rem;
   }
 
   .status-text-big {
-    font-size: 1rem;
+    font-size: 0.8rem;
   }
 
   .overview-header {
