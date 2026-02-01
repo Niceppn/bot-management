@@ -125,23 +125,34 @@ function SimulateBotDetail({ onLogout }) {
     logs.forEach(log => {
       const msg = log.message
 
-      // Track "Limit Order Placed" - when order is placed (pending with order ID)
-      const orderPlacedMatch = msg.match(/Limit Order Placed.*Slot\s+(\d+).*OrderID:\s*(\d+)/i)
+      // Track "Limit Order Placed" - when order is placed (pending with limit price)
+      // Pattern: "Limit Order Placed | Slot 0 | OrderID: xxx | Price: $45678.90" or similar
+      const orderPlacedMatch = msg.match(/Limit Order Placed.*Slot\s+(\d+)/i)
       if (orderPlacedMatch) {
         const slot = parseInt(orderPlacedMatch[1])
-        const orderId = orderPlacedMatch[2]
 
-        console.log(`[DEBUG] Order Placed: Slot ${slot}, OrderID: ${orderId}`)
+        // Try to extract limit price from the message
+        const priceMatch = msg.match(/(?:Price|@|Limit).*?\$?(\d+\.?\d*)/i)
+        let limitPrice = null
+
+        if (priceMatch) {
+          limitPrice = parseFloat(priceMatch[1])
+        }
+
+        console.log(`[DEBUG] Order Placed: Slot ${slot}, Limit Price: ${limitPrice}`)
 
         // Keep existing entry if already filled, otherwise set to pending
         if (!stats.slotInfo[slot] || stats.slotInfo[slot].status !== 'active') {
+          const tp = limitPrice ? limitPrice * (1 + (config?.profit_target_pct || 0.00015)) : null
+
           stats.slotInfo[slot] = {
             status: 'pending',
-            orderId: orderId,
+            limitPrice: limitPrice,
+            tp: tp,
             entry: null,
             lastClosedTime: null
           }
-          console.log(`[DEBUG] Set slot ${slot} to pending`)
+          console.log(`[DEBUG] Set slot ${slot} to pending, TP: ${tp}`)
         }
       }
 
@@ -538,7 +549,11 @@ function SimulateBotDetail({ onLogout }) {
                         <>
                           <span className="status-icon-big">⏰</span>
                           <span className="status-text-big">
-                            สั่งซื้อแล้ว{stats.slotInfo[0].orderId ? ` #${stats.slotInfo[0].orderId.slice(-6)}` : ''}
+                            {stats.slotInfo[0].limitPrice ? (
+                              <>วาง ${stats.slotInfo[0].limitPrice.toFixed(2)} → TP ${stats.slotInfo[0].tp?.toFixed(2)}</>
+                            ) : (
+                              'รอเข้า...'
+                            )}
                           </span>
                         </>
                       ) : stats.slotInfo?.[0]?.status === 'active' ? (
@@ -578,7 +593,11 @@ function SimulateBotDetail({ onLogout }) {
                         <>
                           <span className="status-icon-big">⏰</span>
                           <span className="status-text-big">
-                            สั่งซื้อแล้ว{stats.slotInfo[1].orderId ? ` #${stats.slotInfo[1].orderId.slice(-6)}` : ''}
+                            {stats.slotInfo[1].limitPrice ? (
+                              <>วาง ${stats.slotInfo[1].limitPrice.toFixed(2)} → TP ${stats.slotInfo[1].tp?.toFixed(2)}</>
+                            ) : (
+                              'รอเข้า...'
+                            )}
                           </span>
                         </>
                       ) : stats.slotInfo?.[1]?.status === 'active' ? (
