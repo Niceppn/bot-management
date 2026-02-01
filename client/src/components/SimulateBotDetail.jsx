@@ -317,26 +317,28 @@ function SimulateBotDetail({ onLogout }) {
               </div>
 
               {/* Charts Section */}
-              {totalTrades > 0 && pnlHistory.length > 0 && (
+              {totalTrades > 0 && (
                 <div className="charts-section">
                   <div className="charts-grid">
                     {/* PNL Chart */}
-                    {pnlHistory.length > 0 && (
+                    {pnlHistory && pnlHistory.length > 1 && (
                       <div className="chart-card">
                         <h3>📈 PNL Over Time</h3>
                         <ResponsiveContainer width="100%" height={250}>
-                          <LineChart data={pnlHistory}>
+                          <LineChart data={pnlHistory} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                            <XAxis dataKey="time" stroke="#718096" style={{ fontSize: '12px' }} />
-                            <YAxis stroke="#718096" style={{ fontSize: '12px' }} />
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: '#1a202c',
-                                border: 'none',
-                                borderRadius: '8px',
-                                color: '#fff'
-                              }}
+                            <XAxis
+                              dataKey="time"
+                              stroke="#718096"
+                              style={{ fontSize: '12px' }}
+                              tick={{ fill: '#718096' }}
                             />
+                            <YAxis
+                              stroke="#718096"
+                              style={{ fontSize: '12px' }}
+                              tick={{ fill: '#718096' }}
+                            />
+                            <Tooltip />
                             <Line
                               type="monotone"
                               dataKey="pnl"
@@ -344,6 +346,7 @@ function SimulateBotDetail({ onLogout }) {
                               strokeWidth={3}
                               dot={{ fill: '#10b981', r: 4 }}
                               activeDot={{ r: 6 }}
+                              isAnimationActive={false}
                             />
                           </LineChart>
                         </ResponsiveContainer>
@@ -351,47 +354,42 @@ function SimulateBotDetail({ onLogout }) {
                     )}
 
                     {/* Win/Loss Pie Chart */}
-                    {totalTrades > 0 && (
-                      <div className="chart-card">
-                        <h3>🥧 Win/Loss Distribution</h3>
-                        <ResponsiveContainer width="100%" height={250}>
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: 'Win', value: stats.win || 0 },
-                                { name: 'Loss', value: stats.loss || 0 },
-                                { name: 'Breakeven', value: stats.breakeven || 0 },
-                                { name: 'Unfilled', value: stats.unfilled || 0 }
-                              ].filter(entry => entry.value > 0)}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                              outerRadius={80}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {[
-                                { name: 'Win', value: stats.win || 0, color: '#10b981' },
-                                { name: 'Loss', value: stats.loss || 0, color: '#ef4444' },
-                                { name: 'Breakeven', value: stats.breakeven || 0, color: '#f59e0b' },
-                                { name: 'Unfilled', value: stats.unfilled || 0, color: '#6b7280' }
-                              ].filter(entry => entry.value > 0).map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: '#1a202c',
-                                border: 'none',
-                                borderRadius: '8px',
-                                color: '#fff'
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
+                    {(() => {
+                      const pieData = [
+                        { name: 'Win', value: stats.win || 0, color: '#10b981' },
+                        { name: 'Loss', value: stats.loss || 0, color: '#ef4444' },
+                        { name: 'Breakeven', value: stats.breakeven || 0, color: '#f59e0b' },
+                        { name: 'Unfilled', value: stats.unfilled || 0, color: '#6b7280' }
+                      ].filter(entry => entry.value > 0)
+
+                      return pieData.length > 0 ? (
+                        <div className="chart-card">
+                          <h3>🥧 Win/Loss Distribution</h3>
+                          <ResponsiveContainer width="100%" height={250}>
+                            <PieChart>
+                              <Pie
+                                data={pieData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={(entry) => {
+                                  if (!entry || typeof entry.percent !== 'number') return ''
+                                  return `${entry.name} ${(entry.percent * 100).toFixed(0)}%`
+                                }}
+                                outerRadius={80}
+                                dataKey="value"
+                                isAnimationActive={false}
+                              >
+                                {pieData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : null
+                    })()}
                   </div>
                 </div>
               )}
