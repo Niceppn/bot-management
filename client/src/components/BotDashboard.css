@@ -1,5 +1,5 @@
 .bot-dashboard {
-  padding: 2rem;
+  padding: calc(var(--spacing-unit) * 6);
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -8,22 +8,23 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 2rem;
-  gap: 2rem;
+  margin-bottom: calc(var(--spacing-unit) * 6);
+  gap: calc(var(--spacing-unit) * 4);
 }
 
 .dashboard-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 0.5rem;
+  font-family: var(--font-heading);
+  font-size: 42px;
+  font-weight: 300;
+  color: #FFFFFF;
+  letter-spacing: -0.02em;
+  margin-bottom: calc(var(--spacing-unit) * 1);
 }
 
 .dashboard-subtitle {
-  color: #8b92a7;
-  font-size: 1.1rem;
+  color: var(--platinum);
+  font-size: 15px;
+  font-weight: 300;
 }
 
 .header-actions {
@@ -35,47 +36,51 @@
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  gap: calc(var(--spacing-unit) * 2);
+  padding: calc(var(--spacing-unit) * 2) calc(var(--spacing-unit) * 3);
+  background: var(--void-light);
+  border-radius: var(--border-radius-lg);
+  border: 1px solid var(--graphite);
 }
 
 .filter-group label {
-  font-size: 0.9rem;
-  color: #8b92a7;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  color: var(--platinum-light);
   font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   white-space: nowrap;
 }
 
 .category-filter {
-  padding: 0.5rem 2rem 0.5rem 0.75rem;
-  background: rgba(15, 15, 35, 0.8);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: 8px;
-  color: #e0e7ff;
-  font-size: 0.95rem;
+  padding: calc(var(--spacing-unit) * 1.5) calc(var(--spacing-unit) * 2);
+  background: var(--void);
+  border: 1px solid var(--graphite);
+  border-radius: var(--border-radius);
+  color: #FFFFFF;
+  font-family: var(--font-data);
+  font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-normal);
   min-width: 180px;
 }
 
 .category-filter:hover {
-  border-color: #8b5cf6;
-  background: rgba(15, 15, 35, 0.9);
+  border-color: var(--ice);
+  background: var(--void-light);
 }
 
 .category-filter:focus {
   outline: none;
-  border-color: #8b5cf6;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  border-color: var(--ice);
+  box-shadow: 0 0 0 3px var(--ice-glow);
 }
 
 .category-filter option {
-  background: #1a1a2e;
-  color: #e0e7ff;
-  padding: 0.5rem;
+  background: var(--void-light);
+  color: #FFFFFF;
+  padding: calc(var(--spacing-unit) * 1);
 }
 
 .bot-grid {
@@ -233,14 +238,38 @@
 
 .bot-card {
   position: relative;
-  padding: 1.5rem;
-  border-radius: 16px;
-  transition: all 0.3s ease;
+  padding: calc(var(--spacing-unit) * 3);
+  background: var(--void-light);
+  border: 1px solid var(--graphite);
+  border-radius: var(--border-radius-lg);
+  transition: var(--transition-normal);
+  overflow: hidden;
+}
+
+.bot-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--platinum) 50%,
+    transparent
+  );
+  opacity: 0;
+  transition: var(--transition-normal);
 }
 
 .bot-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(139, 92, 246, 0.2);
+  transform: translateY(-2px);
+  border-color: var(--platinum);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.bot-card:hover::before {
+  opacity: 0.3;
 }
 
 .delete-bot-btn {
@@ -280,32 +309,37 @@
 }
 
 .bot-card-header h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #e0e7ff;
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 400;
+  color: #FFFFFF;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 0.875rem;
-  font-weight: 600;
+  gap: calc(var(--spacing-unit) * 1);
+  padding: calc(var(--spacing-unit) * 1) calc(var(--spacing-unit) * 2);
+  border-radius: calc(var(--border-radius) * 5);
+  font-family: var(--font-data);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .status-badge.running {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: var(--guard-glow);
+  color: var(--guard);
+  border: 1px solid var(--guard);
+  box-shadow: 0 0 15px var(--guard-glow);
 }
 
 .status-badge.stopped {
-  background: rgba(107, 114, 128, 0.1);
-  color: #6b7280;
-  border: 1px solid rgba(107, 114, 128, 0.3);
+  background: rgba(107, 114, 128, 0.15);
+  color: var(--platinum);
+  border: 1px solid var(--graphite);
 }
 
 .status-indicator {
@@ -331,11 +365,13 @@
 }
 
 .bot-description {
-  color: #a5b4fc;
-  font-size: 0.95rem;
-  margin-bottom: 1rem;
-  line-height: 1.5;
-  min-height: 3rem;
+  color: var(--platinum-light);
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 300;
+  margin-bottom: calc(var(--spacing-unit) * 2);
+  line-height: 1.6;
+  min-height: calc(var(--spacing-unit) * 6);
 }
 
 /* Bot Category */
@@ -391,26 +427,36 @@
 
 .metric {
   flex: 1;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: calc(var(--spacing-unit) * 2);
+  background: var(--void);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--graphite);
+  transition: var(--transition-normal);
+}
+
+.metric:hover {
+  border-color: var(--graphite-light);
+  background: var(--void-light);
 }
 
 .metric-label {
   display: block;
-  font-size: 0.75rem;
-  color: #8b92a7;
-  margin-bottom: 0.25rem;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  color: var(--platinum);
+  margin-bottom: calc(var(--spacing-unit) * 0.5);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  font-weight: 500;
 }
 
 .metric-value {
   display: block;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #fff;
+  font-family: var(--font-data);
+  font-size: 20px;
+  font-weight: 500;
+  color: #FFFFFF;
+  letter-spacing: 0.02em;
 }
 
 .bot-actions {
@@ -459,11 +505,13 @@
 }
 
 .metric-value.positive {
-  color: #10b981;
+  color: var(--guard);
+  text-shadow: 0 0 10px var(--guard-glow);
 }
 
 .metric-value.negative {
-  color: #ef4444;
+  color: var(--alert-danger);
+  text-shadow: 0 0 10px var(--alert-danger-glow);
 }
 
 /* Create Bot Dropdown */

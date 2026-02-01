@@ -1,0 +1,313 @@
+/* =========================================
+   INSTITUTIONAL DARK MINIMALIST THEME
+   "The Silence of Power" - Monolithic Aesthetics
+   ========================================= */
+
+/* Import Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+/* =========================================
+   CSS VARIABLES - CRYPTO-NATIVE PALETTE
+   ========================================= */
+:root {
+  /* The Void - Deep Space Background */
+  --void: #0B0E11;
+  --void-light: #12161B;
+  --void-lighter: #1A1F26;
+
+  /* Graphite & Platinum - Metallic Hierarchy */
+  --graphite-dark: #1E2329;
+  --graphite: #2B3139;
+  --graphite-light: #363D47;
+  --platinum: #8B92A0;
+  --platinum-light: #B0B5BD;
+
+  /* The Guard - Emerald Green (Muted) */
+  --guard: #10B981;
+  --guard-muted: #059669;
+  --guard-dark: #047857;
+  --guard-glow: rgba(16, 185, 129, 0.15);
+
+  /* Technological Cold - Ice Blue */
+  --ice: #3B82F6;
+  --ice-muted: #2563EB;
+  --ice-dark: #1E40AF;
+  --ice-glow: rgba(59, 130, 246, 0.15);
+
+  /* Alert States */
+  --alert-danger: #EF4444;
+  --alert-danger-glow: rgba(239, 68, 68, 0.15);
+  --alert-warning: #F59E0B;
+  --alert-warning-glow: rgba(245, 158, 11, 0.15);
+
+  /* Typography */
+  --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-data: 'Space Grotesk', 'JetBrains Mono', monospace;
+
+  /* Spacing & Sizing */
+  --spacing-unit: 8px;
+  --border-radius: 4px;
+  --border-radius-lg: 8px;
+
+  /* Transitions - Heavy Easing */
+  --transition-slow: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* =========================================
+   GLOBAL RESETS
+   ========================================= */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: var(--font-heading);
+  font-weight: 300;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--platinum-light);
+  background: var(--void);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  background: var(--void);
+}
+
+/* =========================================
+   TYPOGRAPHY HIERARCHY
+   ========================================= */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 300;
+  color: #FFFFFF;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+h1 {
+  font-size: 42px;
+  line-height: 1.2;
+  font-weight: 300;
+}
+
+h2 {
+  font-size: 32px;
+  line-height: 1.3;
+  font-weight: 300;
+}
+
+h3 {
+  font-size: 24px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+h4 {
+  font-size: 18px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* Data Typography - For Numbers & Addresses */
+.data-text,
+.wallet-address,
+.transaction-hash,
+.metric-value {
+  font-family: var(--font-data);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* =========================================
+   NODE VISUALIZATION BACKGROUND
+   ========================================= */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    radial-gradient(circle at 20% 30%, var(--guard-glow) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, var(--ice-glow) 0%, transparent 50%);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Subtle Grid Pattern */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    linear-gradient(var(--graphite-dark) 1px, transparent 1px),
+    linear-gradient(90deg, var(--graphite-dark) 1px, transparent 1px);
+  background-size: 50px 50px;
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* =========================================
+   SCROLLBAR STYLING
+   ========================================= */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--void);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--graphite);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--graphite-light);
+}
+
+/* =========================================
+   LOADING STATES - HASHING PULSE
+   ========================================= */
+@keyframes hashPulse {
+  0%, 100% {
+    opacity: 0.3;
+    box-shadow: 0 0 0 0 var(--guard-glow);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 20px 5px var(--guard-glow);
+  }
+}
+
+.loading-pulse {
+  animation: hashPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* =========================================
+   GEOMETRIC SHAPES
+   ========================================= */
+.monolith-card {
+  background: var(--void-light);
+  border: 1px solid var(--graphite);
+  border-radius: var(--border-radius-lg);
+  transition: var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.monolith-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--platinum) 50%,
+    transparent
+  );
+  opacity: 0;
+  transition: var(--transition-normal);
+}
+
+.monolith-card:hover {
+  border-color: var(--platinum);
+  transform: translateY(-2px);
+}
+
+.monolith-card:hover::before {
+  opacity: 0.3;
+}
+
+/* =========================================
+   UTILITY CLASSES
+   ========================================= */
+.text-guard {
+  color: var(--guard);
+}
+
+.text-ice {
+  color: var(--ice);
+}
+
+.text-danger {
+  color: var(--alert-danger);
+}
+
+.text-warning {
+  color: var(--alert-warning);
+}
+
+.text-platinum {
+  color: var(--platinum);
+}
+
+.glow-guard {
+  box-shadow: 0 0 20px var(--guard-glow);
+}
+
+.glow-ice {
+  box-shadow: 0 0 20px var(--ice-glow);
+}
+
+/* =========================================
+   NEGATIVE SPACE EMPHASIS
+   ========================================= */
+.negative-space-lg {
+  padding: calc(var(--spacing-unit) * 8);
+}
+
+.negative-space-md {
+  padding: calc(var(--spacing-unit) * 4);
+}
+
+.negative-space-sm {
+  padding: calc(var(--spacing-unit) * 2);
+}
+
+/* =========================================
+   PRECISION HAIRLINE
+   ========================================= */
+.hairline {
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--graphite) 20%,
+    var(--graphite) 80%,
+    transparent
+  );
+  margin: calc(var(--spacing-unit) * 3) 0;
+}
+
+.hairline-vertical {
+  width: 1px;
+  background: linear-gradient(180deg,
+    transparent,
+    var(--graphite) 20%,
+    var(--graphite) 80%,
+    transparent
+  );
+}
