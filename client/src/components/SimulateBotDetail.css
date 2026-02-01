@@ -92,7 +92,149 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: calc(var(--spacing-unit) * 2);
+  margin-bottom: calc(var(--spacing-unit) * 3);
+}
+
+/* Slot Usage Banner - Prominent Display */
+.slot-usage-banner {
+  padding: calc(var(--spacing-unit) * 3);
+  border-radius: calc(var(--spacing-unit) * 2);
   margin-bottom: calc(var(--spacing-unit) * 4);
+  background: linear-gradient(135deg, var(--void-light) 0%, var(--void) 100%);
+  border: 2px solid var(--guard);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+}
+
+.banner-left {
+  margin-bottom: calc(var(--spacing-unit) * 2);
+}
+
+.banner-left h3 {
+  color: #FFFFFF;
+  font-size: 1.5rem;
+  font-weight: 400;
+  margin: 0 0 calc(var(--spacing-unit) * 0.5) 0;
+  font-family: var(--font-heading);
+}
+
+.banner-subtitle {
+  color: var(--platinum);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.banner-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: calc(var(--spacing-unit) * 2);
+}
+
+.slot-banner {
+  padding: calc(var(--spacing-unit) * 3);
+  border-radius: calc(var(--spacing-unit) * 1.5);
+  background: var(--void);
+  border: 2px solid var(--graphite);
+  transition: var(--transition-normal);
+}
+
+.slot-banner.slot-active {
+  border-color: var(--guard);
+  background: var(--guard-glow);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.slot-banner.slot-cooldown {
+  border-color: var(--alert-warning);
+  background: var(--alert-warning-glow);
+}
+
+.slot-banner.slot-ready {
+  border-color: var(--ice);
+  background: var(--ice-glow);
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: 0 4px 24px rgba(16, 185, 129, 0.4);
+  }
+}
+
+.slot-banner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: calc(var(--spacing-unit) * 2);
+  padding-bottom: calc(var(--spacing-unit) * 1.5);
+  border-bottom: 1px solid var(--graphite);
+}
+
+.slot-banner-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  font-family: var(--font-heading);
+}
+
+.slot-banner-badge {
+  padding: calc(var(--spacing-unit) * 0.75) calc(var(--spacing-unit) * 2);
+  border-radius: calc(var(--spacing-unit) * 2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-data);
+  text-transform: uppercase;
+}
+
+.slot-banner-badge.active {
+  background: var(--guard);
+  color: #FFFFFF;
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.slot-banner-status {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing-unit) * 2);
+  padding: calc(var(--spacing-unit) * 2);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: calc(var(--spacing-unit));
+}
+
+.status-icon-big {
+  font-size: 2rem;
+}
+
+.status-text-big {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  font-family: var(--font-data);
+}
+
+.slot-banner.slot-cooldown .status-text-big {
+  color: var(--alert-warning);
+  animation: countdown-blink 1s ease-in-out infinite;
+}
+
+@keyframes countdown-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .stat-card {
@@ -922,6 +1064,39 @@
 
   .header-actions .btn {
     width: 100%;
+  }
+
+  /* Slot Usage Banner Mobile */
+  .slot-usage-banner {
+    padding: calc(var(--spacing-unit) * 2);
+  }
+
+  .banner-left h3 {
+    font-size: 1.25rem;
+  }
+
+  .banner-subtitle {
+    font-size: 0.875rem;
+  }
+
+  .banner-slots {
+    grid-template-columns: 1fr;
+  }
+
+  .slot-banner {
+    padding: calc(var(--spacing-unit) * 2);
+  }
+
+  .slot-banner-label {
+    font-size: 1rem;
+  }
+
+  .status-icon-big {
+    font-size: 1.5rem;
+  }
+
+  .status-text-big {
+    font-size: 1rem;
   }
 
   .overview-header {

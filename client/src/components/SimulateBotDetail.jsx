@@ -121,43 +121,55 @@ function SimulateBotDetail({ onLogout }) {
     logs.forEach(log => {
       const msg = log.message
 
-      // Count wins/losses and track trades
+      // Count wins/losses and track trades with slot info
       if (msg.includes('TP WIN') || msg.includes('WIN')) {
         stats.win++
         const pnlMatch = msg.match(/PNL:\s*\$?(-?\d+\.?\d*)/i)
+        const slotMatch = msg.match(/Slot\s+(\d+)/i)
+        const slot = slotMatch ? parseInt(slotMatch[1]) - 1 : 0
         if (pnlMatch) {
           stats.trades.push({
             time: log.timestamp,
             type: 'WIN',
             pnl: parseFloat(pnlMatch[1]),
+            slot: slot,
             message: msg
           })
         }
       } else if (msg.includes('STOP LOSS') || msg.includes('LOSS')) {
         stats.loss++
         const pnlMatch = msg.match(/PNL:\s*\$?(-?\d+\.?\d*)/i)
+        const slotMatch = msg.match(/Slot\s+(\d+)/i)
+        const slot = slotMatch ? parseInt(slotMatch[1]) - 1 : 0
         if (pnlMatch) {
           stats.trades.push({
             time: log.timestamp,
             type: 'LOSS',
             pnl: parseFloat(pnlMatch[1]),
+            slot: slot,
             message: msg
           })
         }
       } else if (msg.includes('BREAKEVEN')) {
         stats.breakeven++
+        const slotMatch = msg.match(/Slot\s+(\d+)/i)
+        const slot = slotMatch ? parseInt(slotMatch[1]) - 1 : 0
         stats.trades.push({
           time: log.timestamp,
           type: 'BREAKEVEN',
           pnl: 0,
+          slot: slot,
           message: msg
         })
       } else if (msg.includes('UNFILLED')) {
         stats.unfilled++
+        const slotMatch = msg.match(/Slot\s+(\d+)/i)
+        const slot = slotMatch ? parseInt(slotMatch[1]) - 1 : 0
         stats.trades.push({
           time: log.timestamp,
           type: 'UNFILLED',
           pnl: 0,
+          slot: slot,
           message: msg
         })
       }
@@ -252,15 +264,18 @@ function SimulateBotDetail({ onLogout }) {
     }
   }, [stats.totalPnl])
 
-  // Update recent trades
+  // Update recent trades and cooldown timers
   useEffect(() => {
     if (stats.trades.length > 0) {
       setRecentTrades(stats.trades.slice(-10).reverse()) // Last 10 trades
 
-      // Update last trade time for cooldown calculation
+      // Update last trade time for cooldown calculation - use actual slot from trade
       stats.trades.forEach(trade => {
-        const tradeSlot = 0 // Assuming from log parsing we can get slot
-        lastTradeTimeRef.current[tradeSlot] = trade.time
+        const tradeSlot = trade.slot !== undefined ? trade.slot : 0
+        // Only update if this is more recent
+        if (!lastTradeTimeRef.current[tradeSlot] || trade.time > lastTradeTimeRef.current[tradeSlot]) {
+          lastTradeTimeRef.current[tradeSlot] = trade.time
+        }
       })
     }
   }, [stats.trades.length])
@@ -406,6 +421,71 @@ function SimulateBotDetail({ onLogout }) {
                 <div className="stat-card">
                   <div className="stat-label">🎯 Active Orders</div>
                   <div className="stat-value">{stats.activeOrders.length}</div>
+                </div>
+              </div>
+
+              {/* Current Slot Usage - Prominent Display */}
+              <div className="slot-usage-banner">
+                <div className="banner-left">
+                  <h3>🎰 สถานะไม้เทรด</h3>
+                  <p className="banner-subtitle">ข้อมูล real-time ของไม้แต่ละตัว</p>
+                </div>
+                <div className="banner-slots">
+                  {/* Slot 1 */}
+                  <div className={`slot-banner ${stats.activeOrders.some(o => o.slot === 0) ? 'slot-active' : slotCooldowns[0] > 0 ? 'slot-cooldown' : 'slot-ready'}`}>
+                    <div className="slot-banner-header">
+                      <span className="slot-banner-label">ไม้ที่ 1</span>
+                      {stats.activeOrders.some(o => o.slot === 0) && (
+                        <span className="slot-banner-badge active">กำลังใช้</span>
+                      )}
+                    </div>
+                    <div className="slot-banner-status">
+                      {stats.activeOrders.some(o => o.slot === 0) ? (
+                        <>
+                          <span className="status-icon-big">🟢</span>
+                          <span className="status-text-big">กำลังเทรด</span>
+                        </>
+                      ) : slotCooldowns[0] > 0 ? (
+                        <>
+                          <span className="status-icon-big">⏳</span>
+                          <span className="status-text-big">คูลดาวน์ {slotCooldowns[0]}s</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="status-icon-big">✅</span>
+                          <span className="status-text-big">พร้อมใช้</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Slot 2 */}
+                  <div className={`slot-banner ${stats.activeOrders.some(o => o.slot === 1) ? 'slot-active' : slotCooldowns[1] > 0 ? 'slot-cooldown' : 'slot-ready'}`}>
+                    <div className="slot-banner-header">
+                      <span className="slot-banner-label">ไม้ที่ 2</span>
+                      {stats.activeOrders.some(o => o.slot === 1) && (
+                        <span className="slot-banner-badge active">กำลังใช้</span>
+                      )}
+                    </div>
+                    <div className="slot-banner-status">
+                      {stats.activeOrders.some(o => o.slot === 1) ? (
+                        <>
+                          <span className="status-icon-big">🟢</span>
+                          <span className="status-text-big">กำลังเทรด</span>
+                        </>
+                      ) : slotCooldowns[1] > 0 ? (
+                        <>
+                          <span className="status-icon-big">⏳</span>
+                          <span className="status-text-big">รออีก {slotCooldowns[1]} วินาที</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="status-icon-big">✅</span>
+                          <span className="status-text-big">พร้อมใช้</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
