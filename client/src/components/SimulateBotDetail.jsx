@@ -28,7 +28,7 @@ function SimulateBotDetail({ onLogout }) {
     const interval = setInterval(() => {
       loadBotData()
       loadLogs()
-    }, 5000) // Update every 5 seconds
+    }, 2000) // Update every 2 seconds for real-time dashboard
     return () => clearInterval(interval)
   }, [id])
 
@@ -545,52 +545,6 @@ function SimulateBotDetail({ onLogout }) {
                 </div>
               </div>
 
-              {/* Active Positions */}
-              {bot.status === 'running' && (
-                <div className="positions-section">
-                  <h3>Active Positions</h3>
-                  {stats.activeOrders.length === 0 ? (
-                    <div className="empty-state">
-                      <p>🔍 No active positions</p>
-                      <p className="empty-subtitle">Waiting for AI signal...</p>
-                    </div>
-                  ) : (
-                    <div className="positions-grid">
-                      {stats.activeOrders.map((order, idx) => (
-                        <div key={idx} className="position-card">
-                          <div className="position-header">
-                            <span className="position-title">Position {idx + 1}</span>
-                            <span className="position-slot">Slot {order.slot + 1}</span>
-                          </div>
-                          <div className="position-details">
-                            <div className="position-row">
-                              <span>📥 Entry:</span>
-                              <span className="position-value">${order.entry.toFixed(2)}</span>
-                            </div>
-                            <div className="position-row">
-                              <span>🎯 Take Profit:</span>
-                              <span className="position-value positive">${order.tp.toFixed(2)}</span>
-                            </div>
-                            <div className="position-row">
-                              <span>🛑 Stop Loss:</span>
-                              <span className="position-value negative">${order.sl.toFixed(2)}</span>
-                            </div>
-                            <div className="position-row">
-                              <span>🤖 AI Confidence:</span>
-                              <span className="position-value">{(order.confidence * 100).toFixed(1)}%</span>
-                            </div>
-                            <div className="position-row">
-                              <span>⏱️ Time Remaining:</span>
-                              <span className="position-value">{order.timeRemaining}s</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                </div>
-              )}
             </div>
           )}
 
