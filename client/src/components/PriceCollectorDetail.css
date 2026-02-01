@@ -1,5 +1,5 @@
 .price-collector-detail {
-  padding: 2rem;
+  padding: calc(var(--spacing-unit) * 4);
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -7,8 +7,8 @@
 .detail-header {
   display: flex;
   align-items: center;
-  margin-bottom: 2rem;
-  gap: 2rem;
+  margin-bottom: calc(var(--spacing-unit) * 4);
+  gap: calc(var(--spacing-unit) * 4);
 }
 
 .header-info {
@@ -16,90 +16,94 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 2rem;
+  gap: calc(var(--spacing-unit) * 4);
 }
 
 .header-info h1 {
   font-size: 2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin: 0 0 0.25rem 0;
+  font-weight: 300;
+  color: #FFFFFF;
+  font-family: var(--font-heading);
+  margin: 0 0 calc(var(--spacing-unit) * 0.5) 0;
+  letter-spacing: -0.02em;
 }
 
 .bot-config {
-  color: #8b92a7;
+  color: var(--platinum);
   font-size: 0.95rem;
   margin: 0;
 }
 
 .tabs {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 2rem;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  gap: calc(var(--spacing-unit));
+  margin-bottom: calc(var(--spacing-unit) * 4);
+  border-bottom: 1px solid var(--graphite);
 }
 
 .tab {
-  padding: 0.875rem 1.5rem;
+  padding: calc(var(--spacing-unit) * 1.75) calc(var(--spacing-unit) * 3);
   background: transparent;
   border: none;
-  color: #8b92a7;
+  color: var(--platinum);
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
   border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
+  margin-bottom: -1px;
+  font-family: var(--font-heading);
 }
 
 .tab:hover {
-  color: #a5b4fc;
+  color: var(--platinum-light);
 }
 
 .tab.active {
-  color: #a5b4fc;
-  border-bottom-color: #8b5cf6;
+  color: #FFFFFF;
+  border-bottom-color: var(--guard);
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: calc(var(--spacing-unit) * 2);
+  margin-bottom: calc(var(--spacing-unit) * 4);
 }
 
 .side-distribution {
-  padding: 1.5rem;
-  border-radius: 12px;
-  margin-bottom: 2rem;
+  padding: calc(var(--spacing-unit) * 3);
+  border-radius: calc(var(--spacing-unit) * 2);
+  margin-bottom: calc(var(--spacing-unit) * 4);
+  background: var(--void-light);
+  border: 1px solid var(--graphite);
 }
 
 .side-distribution h3 {
-  color: #e0e7ff;
+  color: #FFFFFF;
   font-size: 1.25rem;
-  margin: 0 0 1.5rem 0;
+  font-weight: 400;
+  margin: 0 0 calc(var(--spacing-unit) * 3) 0;
 }
 
 .distribution-bars {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: calc(var(--spacing-unit) * 2);
 }
 
 .distribution-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: calc(var(--spacing-unit));
 }
 
 .distribution-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: calc(var(--spacing-unit));
   font-size: 0.9rem;
-  color: #8b92a7;
+  color: var(--platinum);
 }
 
 .buy-dot, .sell-dot {
@@ -109,42 +113,46 @@
 }
 
 .buy-dot {
-  background: #10b981;
+  background: var(--guard);
 }
 
 .sell-dot {
-  background: #ef4444;
+  background: var(--alert-danger);
 }
 
 .distribution-bar {
   height: 24px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  background: var(--void);
+  border-radius: calc(var(--spacing-unit) * 2);
   overflow: hidden;
+  border: 1px solid var(--graphite);
 }
 
 .distribution-fill {
   height: 100%;
-  transition: width 0.3s ease;
+  transition: var(--transition-normal);
 }
 
 .distribution-fill.buy {
-  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  background: var(--guard);
 }
 
 .distribution-fill.sell {
-  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+  background: var(--alert-danger);
 }
 
 .recent-trades {
-  padding: 1.5rem;
-  border-radius: 12px;
-  margin-bottom: 2rem;
+  padding: calc(var(--spacing-unit) * 3);
+  border-radius: calc(var(--spacing-unit) * 2);
+  margin-bottom: calc(var(--spacing-unit) * 4);
+  background: var(--void-light);
+  border: 1px solid var(--graphite);
 }
 
 .recent-trades h3 {
-  color: #e0e7ff;
+  color: #FFFFFF;
   font-size: 1.25rem;
+  font-weight: 400;
   margin: 0;
 }
 
@@ -152,17 +160,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  gap: 1rem;
+  margin-bottom: calc(var(--spacing-unit) * 2);
+  gap: calc(var(--spacing-unit) * 2);
 }
 
 .section-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: calc(var(--spacing-unit) * 1.5);
 }
 
 .btn-sm {
-  padding: 0.5rem 1rem;
+  padding: calc(var(--spacing-unit)) calc(var(--spacing-unit) * 2);
   font-size: 0.875rem;
 }
 
@@ -176,96 +184,99 @@
 }
 
 .trades-table thead {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--void);
 }
 
 .trades-table th {
-  padding: 0.875rem 1rem;
+  padding: calc(var(--spacing-unit) * 1.75) calc(var(--spacing-unit) * 2);
   text-align: left;
   font-size: 0.8rem;
-  font-weight: 600;
-  color: #8b92a7;
+  font-weight: 500;
+  color: var(--platinum);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .trades-table td {
-  padding: 0.875rem 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  color: #e0e7ff;
+  padding: calc(var(--spacing-unit) * 1.75) calc(var(--spacing-unit) * 2);
+  border-top: 1px solid var(--graphite);
+  color: #FFFFFF;
   font-size: 0.9rem;
 }
 
 .trades-table tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--void);
 }
 
 .trade-side {
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
+  padding: calc(var(--spacing-unit) * 0.5) calc(var(--spacing-unit) * 1.5);
+  border-radius: var(--border-radius);
   font-size: 0.75rem;
   font-weight: 600;
+  font-family: var(--font-data);
 }
 
 .trade-side.buy {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  background: var(--guard-glow);
+  color: var(--guard);
 }
 
 .trade-side.sell {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--alert-danger-glow);
+  color: var(--alert-danger);
 }
 
 .price {
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-weight: 600;
+  font-family: var(--font-data);
+  font-weight: 500;
 }
 
 .logs-section {
-  padding: 1.5rem;
-  border-radius: 16px;
+  padding: calc(var(--spacing-unit) * 3);
+  border-radius: calc(var(--spacing-unit) * 2);
+  background: var(--void-light);
+  border: 1px solid var(--graphite);
 }
 
 .logs-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: calc(var(--spacing-unit) * 2);
 }
 
 .logs-header h3 {
   font-size: 1.25rem;
-  font-weight: 600;
-  color: #e0e7ff;
+  font-weight: 400;
+  color: #FFFFFF;
   margin: 0;
 }
 
 .logs-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: calc(var(--spacing-unit) * 1.5);
 }
 
 .btn-sm {
-  padding: 0.5rem 1rem;
+  padding: calc(var(--spacing-unit)) calc(var(--spacing-unit) * 2);
   font-size: 0.875rem;
 }
 
 .log-viewer {
-  background: rgba(15, 15, 35, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 1rem;
+  background: var(--void);
+  border: 1px solid var(--graphite);
+  border-radius: calc(var(--spacing-unit) * 2);
+  padding: calc(var(--spacing-unit) * 2);
   height: 500px;
   overflow-y: auto;
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-family: var(--font-data);
   font-size: 0.875rem;
 }
 
 .empty-state {
   text-align: center;
-  padding: 2rem;
-  color: #6b7280;
+  padding: calc(var(--spacing-unit) * 4);
+  color: var(--platinum);
   font-style: italic;
 }
 
@@ -274,7 +285,7 @@
 /* Tablet */
 @media (max-width: 1024px) {
   .price-collector-detail {
-    padding: 1.5rem;
+    padding: calc(var(--spacing-unit) * 3);
   }
 
   .stats-grid {
@@ -285,21 +296,21 @@
 /* Mobile */
 @media (max-width: 768px) {
   .price-collector-detail {
-    padding: 1rem;
-    padding-top: 4rem; /* Space for mobile menu button */
+    padding: calc(var(--spacing-unit) * 2);
+    padding-top: calc(var(--spacing-unit) * 8); /* Space for mobile menu button */
   }
 
   .detail-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    gap: calc(var(--spacing-unit) * 2);
+    margin-bottom: calc(var(--spacing-unit) * 3);
   }
 
   .header-info {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: calc(var(--spacing-unit) * 2);
   }
 
   .header-info h1 {
@@ -313,7 +324,7 @@
   .header-actions {
     flex-direction: column;
     width: 100%;
-    gap: 0.65rem;
+    gap: calc(var(--spacing-unit) * 1.3);
   }
 
   .header-actions .btn {
@@ -321,27 +332,27 @@
   }
 
   .tabs {
-    gap: 0.25rem;
+    gap: calc(var(--spacing-unit) * 0.5);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   .tab {
-    padding: 0.75rem 1.25rem;
+    padding: calc(var(--spacing-unit) * 1.5) calc(var(--spacing-unit) * 2.5);
     font-size: 0.875rem;
     white-space: nowrap;
   }
 
   .stats-grid {
     grid-template-columns: 1fr;
-    gap: 0.875rem;
-    margin-bottom: 1.5rem;
+    gap: calc(var(--spacing-unit) * 1.75);
+    margin-bottom: calc(var(--spacing-unit) * 3);
   }
 
   .side-distribution,
   .recent-trades,
   .logs-section {
-    padding: 1.25rem;
+    padding: calc(var(--spacing-unit) * 2.5);
   }
 
   .side-distribution h3,
@@ -353,7 +364,7 @@
   .section-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.75rem;
+    gap: calc(var(--spacing-unit) * 1.5);
   }
 
   .section-actions {
@@ -366,8 +377,8 @@
   }
 
   .table-container {
-    margin: 0 -1.25rem;
-    padding: 0 1.25rem;
+    margin: 0 calc(var(--spacing-unit) * -2.5);
+    padding: 0 calc(var(--spacing-unit) * 2.5);
   }
 
   .trades-table {
@@ -376,7 +387,7 @@
 
   .trades-table th,
   .trades-table td {
-    padding: 0.75rem 0.65rem;
+    padding: calc(var(--spacing-unit) * 1.5) calc(var(--spacing-unit) * 1.3);
     font-size: 0.8rem;
   }
 
@@ -388,7 +399,7 @@
   .log-viewer {
     height: 400px;
     font-size: 0.8rem;
-    padding: 0.875rem;
+    padding: calc(var(--spacing-unit) * 1.75);
   }
 
   .logs-actions {
@@ -404,8 +415,8 @@
 /* Small Mobile */
 @media (max-width: 480px) {
   .price-collector-detail {
-    padding: 0.875rem;
-    padding-top: 3.5rem;
+    padding: calc(var(--spacing-unit) * 1.75);
+    padding-top: calc(var(--spacing-unit) * 7);
   }
 
   .header-info h1 {
@@ -415,7 +426,7 @@
   .side-distribution,
   .recent-trades,
   .logs-section {
-    padding: 1rem;
+    padding: calc(var(--spacing-unit) * 2);
   }
 
   .trades-table th:nth-child(3),
