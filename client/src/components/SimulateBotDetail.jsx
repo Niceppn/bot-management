@@ -286,34 +286,6 @@ function SimulateBotDetail({ onLogout }) {
       if (pnlMatch) {
         stats.totalPnl = parseFloat(pnlMatch[1])
       }
-
-      // Parse active positions from log messages
-      // Look for patterns like "POS 1 FILLED @ $45678.90 | AI: 42.5%"
-      const posFilledMatch = msg.match(/POS\s+(\d+)\s+FILLED.*Entry:\s*\$(\d+\.?\d*)/i)
-      if (posFilledMatch) {
-        const slot = parseInt(posFilledMatch[1]) - 1
-        const entry = parseFloat(posFilledMatch[2])
-
-        // Check if position not already in activeOrders
-        const exists = stats.activeOrders.find(o => o.slot === slot)
-        if (!exists) {
-          stats.activeOrders.push({
-            slot: slot,
-            entry: entry,
-            tp: entry * (1 + (config?.profit_target_pct || 0.00015)),
-            sl: entry * (1 - (config?.stop_loss_pct || 0.009)),
-            confidence: 0,
-            timeRemaining: config?.holding_time || 2000
-          })
-        }
-      }
-
-      // Remove positions that were closed
-      const closedMatch = msg.match(/SOLD\s+\[Slot\s+(\d+)\]/i)
-      if (closedMatch) {
-        const slot = parseInt(closedMatch[1])
-        stats.activeOrders = stats.activeOrders.filter(o => o.slot !== slot)
-      }
     })
 
     return stats
