@@ -143,7 +143,7 @@ function BotDashboard({ onLogout }) {
                 + Create Price Collector
               </button>
               <button
-                className="btn btn-success"
+                className="btn btn-danger"
                 onClick={() => navigate('/bots/create/simulate')}
               >
                 + Simulate Bot
