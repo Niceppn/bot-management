@@ -139,6 +139,11 @@
   background: rgba(16, 185, 129, 0.05);
 }
 
+.slot-banner.slot-pending {
+  border-color: var(--ice);
+  background: rgba(59, 130, 246, 0.05);
+}
+
 .slot-banner.slot-cooldown {
   border-color: var(--alert-warning);
   background: rgba(251, 191, 36, 0.05);
@@ -177,6 +182,11 @@
   color: #FFFFFF;
 }
 
+.slot-banner-badge.pending {
+  background: var(--ice);
+  color: #FFFFFF;
+}
+
 .slot-banner-status {
   display: flex;
   align-items: center;
@@ -196,6 +206,11 @@
 
 .slot-banner.slot-active .status-text-big {
   color: var(--guard);
+  font-weight: 600;
+}
+
+.slot-banner.slot-pending .status-text-big {
+  color: var(--ice);
   font-weight: 600;
 }
 

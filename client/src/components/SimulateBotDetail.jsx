@@ -125,7 +125,18 @@ function SimulateBotDetail({ onLogout }) {
     logs.forEach(log => {
       const msg = log.message
 
-      // Track slot FILLED (entry)
+      // Track "Limit Order Placed" - when order is placed (pending)
+      const orderPlacedMatch = msg.match(/Limit Order Placed.*Slot\s+(\d+)/i)
+      if (orderPlacedMatch) {
+        const slot = parseInt(orderPlacedMatch[1])
+        stats.slotInfo[slot] = {
+          status: 'pending',
+          entry: null,
+          lastClosedTime: null
+        }
+      }
+
+      // Track "POS X FILLED" - when order is filled (active)
       const filledMatch = msg.match(/POS\s+(\d+)\s+FILLED.*Entry:\s*\$?(\d+\.?\d*)/i)
       if (filledMatch) {
         const slot = parseInt(filledMatch[1]) - 1
@@ -148,7 +159,7 @@ function SimulateBotDetail({ onLogout }) {
         }
       }
 
-      // Track slot SOLD (closed position)
+      // Track "SOLD" - when position is closed
       const soldMatch = msg.match(/SOLD\s+\[Slot\s+(\d+)\]/i)
       if (soldMatch) {
         const slot = parseInt(soldMatch[1]) - 1
@@ -469,72 +480,84 @@ function SimulateBotDetail({ onLogout }) {
               </div>
 
               {/* Current Slot Usage - Compact Display */}
-              <div className="slot-usage-banner">
-                <div className="banner-left">
-                  <h3>🎰 สถานะไม้เทรด</h3>
-                </div>
-                <div className="banner-slots">
-                  {/* Slot 1 */}
-                  <div className={`slot-banner ${stats.slotInfo?.[0]?.status === 'active' ? 'slot-active' : slotCooldowns[0] > 0 ? 'slot-cooldown' : 'slot-ready'}`}>
-                    <div className="slot-banner-header">
-                      <span className="slot-banner-label">ไม้ที่ 1</span>
-                      {stats.slotInfo?.[0]?.status === 'active' && (
-                        <span className="slot-banner-badge active">เทรด</span>
-                      )}
-                    </div>
-                    <div className="slot-banner-status">
-                      {stats.slotInfo?.[0]?.status === 'active' ? (
-                        <>
-                          <span className="status-icon-big">🟢</span>
-                          <span className="status-text-big">
-                            เข้า ${stats.slotInfo[0].entry?.toFixed(2) || '0.00'}
-                          </span>
-                        </>
-                      ) : slotCooldowns[0] > 0 ? (
-                        <>
-                          <span className="status-icon-big">⏳</span>
-                          <span className="status-text-big">คูลดาวน์ {slotCooldowns[0]}s</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="status-icon-big">✅</span>
-                          <span className="status-text-big">พร้อมใช้</span>
-                        </>
-                      )}
-                    </div>
+              {(stats.slotInfo?.[0]?.status !== 'ready' || stats.slotInfo?.[1]?.status !== 'ready' || slotCooldowns[0] > 0 || slotCooldowns[1] > 0) && (
+                <div className="slot-usage-banner">
+                  <div className="banner-left">
+                    <h3>🎰 สถานะไม้เทรด</h3>
                   </div>
+                  <div className="banner-slots">
+                    {/* Slot 1 - Only show if active, pending, or cooldown */}
+                    {(stats.slotInfo?.[0]?.status === 'pending' || stats.slotInfo?.[0]?.status === 'active' || slotCooldowns[0] > 0) && (
+                      <div className={`slot-banner ${stats.slotInfo?.[0]?.status === 'active' ? 'slot-active' : stats.slotInfo?.[0]?.status === 'pending' ? 'slot-pending' : 'slot-cooldown'}`}>
+                        <div className="slot-banner-header">
+                          <span className="slot-banner-label">ไม้ที่ 1</span>
+                          {stats.slotInfo?.[0]?.status === 'active' && (
+                            <span className="slot-banner-badge active">เทรด</span>
+                          )}
+                          {stats.slotInfo?.[0]?.status === 'pending' && (
+                            <span className="slot-banner-badge pending">รอ</span>
+                          )}
+                        </div>
+                        <div className="slot-banner-status">
+                          {stats.slotInfo?.[0]?.status === 'pending' ? (
+                            <>
+                              <span className="status-icon-big">⏰</span>
+                              <span className="status-text-big">รอเข้า...</span>
+                            </>
+                          ) : stats.slotInfo?.[0]?.status === 'active' ? (
+                            <>
+                              <span className="status-icon-big">🟢</span>
+                              <span className="status-text-big">
+                                เข้า ${stats.slotInfo[0].entry?.toFixed(2) || '0.00'}
+                              </span>
+                            </>
+                          ) : slotCooldowns[0] > 0 ? (
+                            <>
+                              <span className="status-icon-big">⏳</span>
+                              <span className="status-text-big">คูลดาวน์ {slotCooldowns[0]}s</span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
 
-                  {/* Slot 2 */}
-                  <div className={`slot-banner ${stats.slotInfo?.[1]?.status === 'active' ? 'slot-active' : slotCooldowns[1] > 0 ? 'slot-cooldown' : 'slot-ready'}`}>
-                    <div className="slot-banner-header">
-                      <span className="slot-banner-label">ไม้ที่ 2</span>
-                      {stats.slotInfo?.[1]?.status === 'active' && (
-                        <span className="slot-banner-badge active">เทรด</span>
-                      )}
-                    </div>
-                    <div className="slot-banner-status">
-                      {stats.slotInfo?.[1]?.status === 'active' ? (
-                        <>
-                          <span className="status-icon-big">🟢</span>
-                          <span className="status-text-big">
-                            เข้า ${stats.slotInfo[1].entry?.toFixed(2) || '0.00'}
-                          </span>
-                        </>
-                      ) : slotCooldowns[1] > 0 ? (
-                        <>
-                          <span className="status-icon-big">⏳</span>
-                          <span className="status-text-big">รออีก {slotCooldowns[1]}s</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="status-icon-big">✅</span>
-                          <span className="status-text-big">พร้อมใช้</span>
-                        </>
-                      )}
-                    </div>
+                    {/* Slot 2 - Only show if active, pending, or cooldown */}
+                    {(stats.slotInfo?.[1]?.status === 'pending' || stats.slotInfo?.[1]?.status === 'active' || slotCooldowns[1] > 0) && (
+                      <div className={`slot-banner ${stats.slotInfo?.[1]?.status === 'active' ? 'slot-active' : stats.slotInfo?.[1]?.status === 'pending' ? 'slot-pending' : 'slot-cooldown'}`}>
+                        <div className="slot-banner-header">
+                          <span className="slot-banner-label">ไม้ที่ 2</span>
+                          {stats.slotInfo?.[1]?.status === 'active' && (
+                            <span className="slot-banner-badge active">เทรด</span>
+                          )}
+                          {stats.slotInfo?.[1]?.status === 'pending' && (
+                            <span className="slot-banner-badge pending">รอ</span>
+                          )}
+                        </div>
+                        <div className="slot-banner-status">
+                          {stats.slotInfo?.[1]?.status === 'pending' ? (
+                            <>
+                              <span className="status-icon-big">⏰</span>
+                              <span className="status-text-big">รอเข้า...</span>
+                            </>
+                          ) : stats.slotInfo?.[1]?.status === 'active' ? (
+                            <>
+                              <span className="status-icon-big">🟢</span>
+                              <span className="status-text-big">
+                                เข้า ${stats.slotInfo[1].entry?.toFixed(2) || '0.00'}
+                              </span>
+                            </>
+                          ) : slotCooldowns[1] > 0 ? (
+                            <>
+                              <span className="status-icon-big">⏳</span>
+                              <span className="status-text-big">รออีก {slotCooldowns[1]}s</span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* PNL Chart */}
               <div className="chart-section">
