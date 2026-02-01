@@ -201,15 +201,21 @@ function SimulateBotDetail({ onLogout }) {
   }
 
   const handleResetDashboard = async () => {
-    if (window.confirm('⚠️ Are you sure you want to RESET EVERYTHING? This will:\n- Stop the bot\n- Clear all statistics\n- Clear PNL history\n- Clear recent trades\n- Restart the bot fresh\n\nThis action cannot be undone!')) {
+    if (window.confirm('⚠️ คุณแน่ใจหรือไม่ที่จะรีเซ็ตทุกอย่าง?\n\nการรีเซ็ตจะทำ:\n- ลบ log ทั้งหมด\n- ล้างสถิติการเทรด\n- ล้างกราฟ PNL\n- ล้างประวัติการเทรด\n- หยุดและรีสตาร์ท bot ใหม่\n\n⚠️ การกระทำนี้ไม่สามารถยกเลิกได้!')) {
       try {
+        setError('')
+
         // Stop bot first
         if (bot.status === 'running') {
           await botAPI.stop(id)
-          await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
+          await new Promise(resolve => setTimeout(resolve, 1500))
         }
 
-        // Clear all state
+        // Call API to reset (delete logs)
+        const { simulateBotAPI } = await import('../services/api')
+        await simulateBotAPI.reset(id)
+
+        // Clear all frontend state
         setPnlHistory([])
         setRecentTrades([])
         setSlotCooldowns({})
@@ -220,10 +226,12 @@ function SimulateBotDetail({ onLogout }) {
         // Restart bot
         await botAPI.start(id)
         await loadBotData()
+        await loadLogs()
 
-        alert('✅ Dashboard reset successfully! Bot restarted.')
+        alert('✅ รีเซ็ตสำเร็จ! Bot เริ่มใหม่แล้ว')
       } catch (err) {
-        setError('Failed to reset: ' + err.message)
+        setError('การรีเซ็ตล้มเหลว: ' + err.message)
+        console.error('Reset error:', err)
       }
     }
   }

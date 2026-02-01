@@ -386,5 +386,11 @@ export const simulateBotAPI = {
       method: 'PUT',
       body: JSON.stringify(config)
     })
+  },
+
+  reset: async (botId) => {
+    return apiRequest(`/simulate-bot/${botId}/reset`, {
+      method: 'POST'
+    })
   }
 }

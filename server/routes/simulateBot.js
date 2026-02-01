@@ -271,4 +271,51 @@ router.put('/:id/config', verifyToken, (req, res) => {
   }
 })
 
+// ==========================================
+// Reset Simulate Bot (Clear logs & restart)
+// ==========================================
+router.post('/:id/reset', verifyToken, (req, res) => {
+  try {
+    const db = getDatabase()
+    const botId = parseInt(req.params.id)
+
+    // Get bot info
+    const bot = db.prepare('SELECT * FROM bots WHERE id = ?').get(botId)
+    if (!bot) {
+      return res.status(404).json({ success: false, error: 'Bot not found' })
+    }
+
+    // Delete log file if exists
+    if (bot.log_path && fs.existsSync(bot.log_path)) {
+      try {
+        fs.unlinkSync(bot.log_path)
+        console.log(`🗑️ Deleted log file: ${bot.log_path}`)
+      } catch (err) {
+        console.error('Failed to delete log file:', err)
+      }
+    }
+
+    // Delete bot_logs from database
+    db.prepare('DELETE FROM bot_logs WHERE bot_id = ?').run(botId)
+    console.log(`🗑️ Cleared database logs for bot ${botId}`)
+
+    // Create new log file path
+    const config = db.prepare('SELECT symbol FROM simulate_bot_configs WHERE bot_id = ?').get(botId)
+    const newLogPath = `server/logs/simulate_${config?.symbol.toLowerCase() || 'bot'}_${Date.now()}.log`
+
+    // Update bot with new log path
+    db.prepare('UPDATE bots SET log_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newLogPath, botId)
+
+    console.log(`✅ Bot ${botId} reset successfully`)
+
+    res.json({
+      success: true,
+      message: 'Bot reset successfully. All logs cleared.'
+    })
+  } catch (error) {
+    console.error('Error resetting bot:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 export default router
