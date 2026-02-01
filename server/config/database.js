@@ -68,10 +68,18 @@ export const initializeDatabase = () => {
       stopped_at TEXT,
       restart_count INTEGER DEFAULT 0,
       auto_restart INTEGER DEFAULT 0,
+      is_temporary INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `)
+
+  // Add is_temporary column if it doesn't exist (migration for existing databases)
+  try {
+    database.exec(`ALTER TABLE bots ADD COLUMN is_temporary INTEGER DEFAULT 0`)
+  } catch (error) {
+    // Column already exists, ignore error
+  }
 
   // Create bot_logs table
   database.exec(`

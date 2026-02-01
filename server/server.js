@@ -7,6 +7,7 @@ import logRoutes from './routes/logs.js'
 import tradeRoutes from './routes/trades.js'
 import systemRoutes from './routes/system.js'
 import promotionFeeRoutes from './routes/promotionFees.js'
+import tempBotRoutes from './routes/tempBot.js'
 import { initializeDatabase, getDatabase } from './config/database.js'
 
 dotenv.config()
@@ -16,7 +17,7 @@ const PORT = process.env.PORT || 3001
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: ['http://localhost:5173', 'http://47.129.144.109', 'http://47.129.144.109:80'],
   credentials: true
 }))
 app.use(express.json())
@@ -29,6 +30,7 @@ app.use('/api/logs', logRoutes)
 app.use('/api/trades', tradeRoutes)
 app.use('/api/system', systemRoutes)
 app.use('/api/promotion-fees', promotionFeeRoutes)
+app.use('/api/temp-bot', tempBotRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,0 +1,157 @@
+═══════════════════════════════════════════════════════════════
+  MANUAL DEPLOYMENT COMMANDS - IDE Temporary Bot Feature
+  Copy and paste these commands one by one
+═══════════════════════════════════════════════════════════════
+
+SERVER: 47.129.144.109
+USER: bitnami
+
+─────────────────────────────────────────────────────────────
+STEP 1: Package Server Files (Run on your Mac)
+─────────────────────────────────────────────────────────────
+
+cd /Users/Macbook/Crypto_Monitoring
+tar -czf server-update.tar.gz \
+    server/routes/tempBot.js \
+    server/server.js \
+    server/config/database.js \
+    server/package.json
+
+echo "✅ Server files packaged"
+
+─────────────────────────────────────────────────────────────
+STEP 2: Upload Files to Server (Run on your Mac)
+─────────────────────────────────────────────────────────────
+
+# Upload server files
+scp server-update.tar.gz bitnami@47.129.144.109:/opt/bot-manager/
+
+# Upload frontend dist
+scp -r client/dist/* bitnami@47.129.144.109:/opt/bot-manager/dist/
+
+echo "✅ Files uploaded"
+
+─────────────────────────────────────────────────────────────
+STEP 3: SSH into Server and Run Deployment
+─────────────────────────────────────────────────────────────
+
+ssh bitnami@47.129.144.109
+
+# Now you're on the server. Run these commands:
+
+# Backup database
+cp /opt/bot-manager/server/data/bot_manager.db /opt/bot-manager/server/data/bot_manager.db.backup_$(date +%Y%m%d_%H%M%S)
+echo "✅ Database backed up"
+
+# Extract server files
+cd /opt/bot-manager
+tar -xzf server-update.tar.gz
+rm server-update.tar.gz
+echo "✅ Files extracted"
+
+# Install dependencies
+cd /opt/bot-manager/server
+npm install multer
+echo "✅ Dependencies installed"
+
+# Create temp_bots directory
+mkdir -p /opt/bot-manager/temp_bots
+chmod 755 /opt/bot-manager/temp_bots
+echo "✅ temp_bots directory created"
+
+# Restart backend service
+pm2 stop bot-manager-backend || pm2 stop bot-manager-api || true
+sleep 2
+pm2 start bot-manager-backend || pm2 start bot-manager-api || pm2 start /opt/bot-manager/server/server.js --name bot-manager-backend
+sleep 3
+echo "✅ Backend restarted"
+
+# Restart Apache
+sudo /opt/bitnami/ctlscript.sh restart apache
+echo "✅ Apache restarted"
+
+# Add cache busting
+cd /opt/bot-manager/dist
+TIMESTAMP=$(date +%s)
+cp index.html index.html.bak
+sed "s/\(index-[^.]*\.js\)/\1?v=${TIMESTAMP}/g" index.html.bak | sed "s/\(index-[^.]*\.css\)/\1?v=${TIMESTAMP}/g" > index.html
+echo "✅ Cache busting added"
+
+─────────────────────────────────────────────────────────────
+STEP 4: Verify Deployment (Still on the server)
+─────────────────────────────────────────────────────────────
+
+# Check PM2 status
+pm2 status
+
+# Check temp_bots directory
+ls -la /opt/bot-manager/temp_bots
+
+# Verify database migration
+sqlite3 /opt/bot-manager/server/data/bot_manager.db 'PRAGMA table_info(bots);' | grep is_temporary
+
+# Check recent logs
+pm2 logs bot-manager-backend --lines 20
+
+─────────────────────────────────────────────────────────────
+STEP 5: Test API Endpoint (From server or your Mac)
+─────────────────────────────────────────────────────────────
+
+curl http://47.129.144.109/api/health
+
+# Exit from server
+exit
+
+─────────────────────────────────────────────────────────────
+STEP 6: Frontend Testing (In your browser)
+─────────────────────────────────────────────────────────────
+
+1. Open: http://47.129.144.109
+2. Login with your credentials
+3. Click "Create Price Collector" button
+4. You should see the IDE Temporary Bot interface with:
+   - File upload area
+   - File tree on the left (after upload)
+   - Monaco code editor on the right
+   - Run Bot / Stop Bot buttons
+
+─────────────────────────────────────────────────────────────
+TEST FILE (Optional - Create test bot)
+─────────────────────────────────────────────────────────────
+
+Create a file named test_bot.py with this content:
+
+import time
+print("Test bot started!")
+for i in range(10):
+    print(f"Count: {i}")
+    time.sleep(1)
+print("Test bot finished!")
+
+Then upload it through the IDE interface and test:
+1. Upload the file
+2. Click "Run Bot"
+3. Watch the logs stream
+4. Click "Stop Bot" to stop it
+
+─────────────────────────────────────────────────────────────
+ROLLBACK (Only if deployment fails)
+─────────────────────────────────────────────────────────────
+
+ssh bitnami@47.129.144.109
+
+# Restore database
+cp /opt/bot-manager/server/data/bot_manager.db.backup_* /opt/bot-manager/server/data/bot_manager.db
+
+# Restart services
+pm2 restart bot-manager-backend
+sudo /opt/bitnami/ctlscript.sh restart apache
+
+─────────────────────────────────────────────────────────────
+CLEANUP (Run on your Mac after successful deployment)
+─────────────────────────────────────────────────────────────
+
+cd /Users/Macbook/Crypto_Monitoring
+rm server-update.tar.gz
+
+═══════════════════════════════════════════════════════════════
