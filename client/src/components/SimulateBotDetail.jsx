@@ -18,7 +18,11 @@ function SimulateBotDetail({ onLogout }) {
 
   useEffect(() => {
     loadBotData()
-    const interval = setInterval(loadBotData, 5000) // Update every 5 seconds
+    loadLogs()
+    const interval = setInterval(() => {
+      loadBotData()
+      loadLogs()
+    }, 5000) // Update every 5 seconds
     return () => clearInterval(interval)
   }, [id])
 
@@ -35,6 +39,16 @@ function SimulateBotDetail({ onLogout }) {
       setError(err.message)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadLogs = async () => {
+    try {
+      const { logsAPI } = await import('../services/api')
+      const logsData = await logsAPI.getTailLogs(id, 500)
+      setLogs(logsData)
+    } catch (err) {
+      console.error('Failed to load logs:', err)
     }
   }
 
@@ -92,8 +106,60 @@ function SimulateBotDetail({ onLogout }) {
       pendingOrders: []
     }
 
-    // This is a simplified parser - in production, you'd parse actual log output
-    // For now, returning mock data for demonstration
+    if (!logs || logs.length === 0) {
+      return stats
+    }
+
+    // Parse logs to extract stats
+    logs.forEach(log => {
+      const msg = log.message
+
+      // Count wins/losses
+      if (msg.includes('TP WIN') || msg.includes('WIN')) {
+        stats.win++
+      } else if (msg.includes('STOP LOSS') || msg.includes('LOSS')) {
+        stats.loss++
+      } else if (msg.includes('BREAKEVEN')) {
+        stats.breakeven++
+      } else if (msg.includes('UNFILLED')) {
+        stats.unfilled++
+      }
+
+      // Extract PNL from log messages like "PNL: $0.1234 | Total: $5.6789"
+      const pnlMatch = msg.match(/Total:\s*\$?(-?\d+\.?\d*)/i)
+      if (pnlMatch) {
+        stats.totalPnl = parseFloat(pnlMatch[1])
+      }
+
+      // Parse active positions from log messages
+      // Look for patterns like "POS 1 FILLED @ $45678.90 | AI: 42.5%"
+      const posFilledMatch = msg.match(/POS\s+(\d+)\s+FILLED.*Entry:\s*\$(\d+\.?\d*)/i)
+      if (posFilledMatch) {
+        const slot = parseInt(posFilledMatch[1]) - 1
+        const entry = parseFloat(posFilledMatch[2])
+
+        // Check if position not already in activeOrders
+        const exists = stats.activeOrders.find(o => o.slot === slot)
+        if (!exists) {
+          stats.activeOrders.push({
+            slot: slot,
+            entry: entry,
+            tp: entry * (1 + (config?.profit_target_pct || 0.00015)),
+            sl: entry * (1 - (config?.stop_loss_pct || 0.009)),
+            confidence: 0,
+            timeRemaining: config?.holding_time || 2000
+          })
+        }
+      }
+
+      // Remove positions that were closed
+      const closedMatch = msg.match(/SOLD\s+\[Slot\s+(\d+)\]/i)
+      if (closedMatch) {
+        const slot = parseInt(closedMatch[1])
+        stats.activeOrders = stats.activeOrders.filter(o => o.slot !== slot)
+      }
+    })
+
     return stats
   }
 
@@ -466,11 +532,23 @@ function SimulateBotDetail({ onLogout }) {
               <div className="logs-section">
                 <h3>Bot Logs (Real-time)</h3>
                 <div className="logs-container">
-                  <pre className="logs-output">
-                    {bot.status === 'running'
-                      ? 'Logs will appear here when the bot is running...'
-                      : 'Start the bot to see logs'}
-                  </pre>
+                  {logs.length === 0 ? (
+                    <pre className="logs-output empty">
+                      {bot.status === 'running'
+                        ? 'Waiting for logs...'
+                        : 'Start the bot to see logs'}
+                    </pre>
+                  ) : (
+                    <pre className="logs-output">
+                      {logs.map((log, idx) => (
+                        <div key={idx} className={`log-line log-${log.level?.toLowerCase()}`}>
+                          <span className="log-timestamp">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                          <span className="log-level">[{log.level}]</span>
+                          <span className="log-message">{log.message}</span>
+                        </div>
+                      ))}
+                    </pre>
+                  )}
                 </div>
               </div>
             </div>
