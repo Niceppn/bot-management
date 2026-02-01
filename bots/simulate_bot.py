@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
 """
-Simulate Trading Bot - Controlled by Bot Manager
-Receives configuration from command line arguments
+Simulate Bot for Bot Manager
+Integrates with Bot Manager for configuration and logging
 """
 
-import websocket
-import json
-import datetime
-import sys
-import requests
-import threading
-import time
-import argparse
+import websocket, json, datetime, sys, requests, threading, time, argparse, logging
 import pandas as pd
 import lightgbm as lgb
 from collections import deque
@@ -19,26 +12,28 @@ from binance.client import Client
 from binance.enums import *
 
 # ==========================================
-# PARSE COMMAND LINE ARGUMENTS
+# PARSE ARGUMENTS
 # ==========================================
-parser = argparse.ArgumentParser(description='Simulate Trading Bot')
-parser.add_argument('--bot-id', type=int, required=True, help='Bot ID')
-parser.add_argument('--symbol', type=str, required=True, help='Trading symbol (e.g., BTCUSDC)')
-parser.add_argument('--model-path', type=str, required=True, help='Path to LightGBM model file')
-parser.add_argument('--api-key', type=str, required=True, help='Binance API Key')
-parser.add_argument('--secret-key', type=str, required=True, help='Binance Secret Key')
-parser.add_argument('--telegram-token', type=str, default='', help='Telegram Bot Token')
-parser.add_argument('--telegram-chat-id', type=str, default='', help='Telegram Chat ID')
-parser.add_argument('--confidence', type=float, default=0.40, help='AI Confidence Threshold')
-parser.add_argument('--capital', type=float, default=200, help='Capital per trade')
-parser.add_argument('--holding-time', type=int, default=2000, help='Holding time in seconds')
-parser.add_argument('--profit-target', type=float, default=0.00015, help='Profit target percentage')
-parser.add_argument('--stop-loss', type=float, default=0.009, help='Stop loss percentage')
-parser.add_argument('--maker-offset', type=float, default=0.00001, help='Maker buy offset percentage')
-parser.add_argument('--maker-timeout', type=int, default=60, help='Maker order timeout')
-parser.add_argument('--max-positions', type=int, default=2, help='Max concurrent positions')
-parser.add_argument('--cooldown', type=int, default=180, help='Cooldown between positions')
-parser.add_argument('--testnet', type=int, default=1, help='Use testnet (1) or production (0)')
+parser = argparse.ArgumentParser(description='Simulate Bot')
+parser.add_argument('--bot-id', required=True, help='Bot ID from database')
+parser.add_argument('--symbol', required=True, help='Trading symbol (e.g., BTCUSDC)')
+parser.add_argument('--model-path', required=True, help='Path to LightGBM model file')
+parser.add_argument('--api-key', required=True, help='Binance API Key')
+parser.add_argument('--secret-key', required=True, help='Binance Secret Key')
+parser.add_argument('--telegram-token', default='', help='Telegram Bot Token')
+parser.add_argument('--telegram-chat-id', default='', help='Telegram Chat ID')
+parser.add_argument('--confidence', type=float, default=0.40, help='AI Confidence Threshold (0-1)')
+parser.add_argument('--capital', type=float, default=200, help='Capital per trade (USDT)')
+parser.add_argument('--holding-time', type=int, default=2000, help='Holding time (seconds)')
+parser.add_argument('--profit-target', type=float, default=0.0003, help='Profit target percentage (0-1)')
+parser.add_argument('--stop-loss', type=float, default=0.006, help='Stop loss percentage (0-1)')
+parser.add_argument('--maker-offset', type=float, default=0.00001, help='Maker buy offset percentage (0-1)')
+parser.add_argument('--maker-timeout', type=int, default=60, help='Maker order timeout (seconds)')
+parser.add_argument('--max-positions', type=int, default=3, help='Maximum concurrent positions')
+parser.add_argument('--cooldown', type=int, default=180, help='Cooldown between slot 1 trades (seconds)')
+parser.add_argument('--cooldown-slot2', type=int, default=180, help='Cooldown for slot 2 after slot 1 filled (seconds)')
+parser.add_argument('--cooldown-slot3', type=int, default=30, help='Cooldown for slot 3 after slot 2 filled (seconds)')
+parser.add_argument('--testnet', type=int, default=1, help='Use testnet (1) or mainnet (0)')
 
 args = parser.parse_args()
 
@@ -49,11 +44,16 @@ BOT_ID = args.bot_id
 SYMBOL_WS = args.symbol.lower()
 SYMBOL_TRADE = args.symbol.upper()
 MODEL_FILE = args.model_path
-API_KEY = args.api_key
-SECRET_KEY = args.secret_key
+
+# --- TELEGRAM ---
 TG_TOKEN = args.telegram_token
 TG_CHAT_ID = args.telegram_chat_id
 
+# --- API KEYS ---
+API_KEY = args.api_key
+SECRET_KEY = args.secret_key
+
+# --- Strategy ---
 CONFIDENCE_THRESHOLD = args.confidence
 CAPITAL_PER_TRADE = args.capital
 HOLDING_TIME = args.holding_time
@@ -61,19 +61,33 @@ PROFIT_TARGET_PCT = args.profit_target
 STOP_LOSS_PCT = args.stop_loss
 MAKER_BUY_OFFSET_PCT = args.maker_offset
 MAKER_ORDER_TIMEOUT = args.maker_timeout
+STATUS_REPORT_INTERVAL = 1800  # 30 minutes
+
+# --- Concurrent Positions ---
 MAX_POSITIONS = args.max_positions
 COOLDOWN_SECONDS = args.cooldown
-STATUS_REPORT_INTERVAL = 3800
+SLOT2_COOLDOWN_SECONDS = args.cooldown_slot2
+SLOT3_COOLDOWN_SECONDS = args.cooldown_slot3
+
 USE_TESTNET = args.testnet == 1
+
+# ==========================================
+# SETUP LOGGING
+# ==========================================
+# Log to stdout so Bot Manager can capture it
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # ==========================================
 # CONNECT TO BINANCE
 # ==========================================
-def log(msg, level='INFO'):
-    """Log with timestamp and level"""
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"[{timestamp}] [{level}] {msg}", flush=True)
-
 try:
     client = Client(API_KEY, SECRET_KEY, testnet=USE_TESTNET)
     if USE_TESTNET:
@@ -81,10 +95,11 @@ try:
 
     balance = client.futures_account_balance()
     usdt = next((item for item in balance if item["asset"] == "USDT"), None)
-    log(f"✅ Connected to Binance {'Testnet' if USE_TESTNET else 'Production'}")
-    log(f"💰 Balance: {usdt['balance']} USDT")
+    logger.info(f"✅ Connected to Binance {'Testnet' if USE_TESTNET else 'Mainnet'}")
+    logger.info(f"💰 Balance: {usdt['balance']} USDT")
+
 except Exception as e:
-    log(f"❌ Connection failed: {e}", 'ERROR')
+    logger.error(f"❌ Connection failed: {e}")
     sys.exit(1)
 
 # ==========================================
@@ -105,16 +120,15 @@ current_sec = {'net_flow': 0.0, 'total_volume': 0.0, 'trade_count': 0, 'close': 
 # Load model
 try:
     model = lgb.Booster(model_file=MODEL_FILE)
-    log(f"✅ Loaded AI Model: {MODEL_FILE}")
+    logger.info(f"✅ Loaded AI Model: {MODEL_FILE}")
 except Exception as e:
-    log(f"❌ Model loading failed: {e}", 'ERROR')
+    logger.error(f"❌ Model file not found: {e}")
     sys.exit(1)
 
 # ==========================================
 # TELEGRAM FUNCTIONS
 # ==========================================
 def send_tg_msg(msg):
-    """Send Telegram message if configured"""
     if not TG_TOKEN or not TG_CHAT_ID:
         return
     try:
@@ -135,26 +149,158 @@ def send_status_report():
         total_trades = stats['win'] + stats['loss'] + stats['breakeven']
         win_rate = (stats['win'] / total_trades * 100) if total_trades > 0 else 0
 
-        slot_status = ""
-        if len(active_orders) == 1 and active_orders[0]['slot'] == 0:
-            elapsed = int(current_time - active_orders[0]['entry_ts'])
-            remaining = max(0, COOLDOWN_SECONDS - elapsed)
-            if remaining > 0:
-                slot_status = f"🔹 Slot 1: Active | 🔹 Slot 2: {remaining}s cooldown"
-            else:
-                slot_status = f"🔹 Slot 1: Active | 🔹 Slot 2: ✅ Ready"
-        elif len(active_orders) == 2:
-            slot_status = f"🔹 Slot 1: Active | 🔹 Slot 2: Active"
+        slot_status = build_slot_status_text(current_time)
 
         send_tg_msg(
-            f"📊 <b>AUTO REPORT</b>\n"
+            f"📊 <b>AUTO REPORT (30 min)</b>\n"
             f"━━━━━━━━━━━━━━━━\n"
-            f"💰 PNL: <b>${total_pnl_cash:.4f}</b>\n"
-            f"✅ Win: {stats['win']} | ❌ Loss: {stats['loss']}\n"
+            f"⏰ {datetime.datetime.now().strftime('%H:%M:%S')}\n"
+            f"💰 Total PNL: <b>${total_pnl_cash:.4f}</b>\n"
+            f"━━━━━━━━━━━━━━━━\n"
+            f"✅ Win: {stats['win']}\n"
+            f"❌ Loss: {stats['loss']}\n"
+            f"😐 BE: {stats['breakeven']}\n"
+            f"⏳ Unfilled: {stats['unfilled']}\n"
             f"📈 Win Rate: <b>{win_rate:.1f}%</b>\n"
+            f"━━━━━━━━━━━━━━━━\n"
+            f"📋 Active: {len(active_orders)}\n"
+            f"⏱️ Pending: {len(pending_orders)}\n"
+            f"━━━━━━━━━━━━━━━━\n"
             f"{slot_status}"
         )
         last_status_report_time = current_time
+
+def build_slot_status_text(current_time):
+    """Build slot status text for Telegram messages"""
+    if len(active_orders) == 0:
+        return "🔹 Slot 1: ✓ พร้อม\n🔹 Slot 2: รอไม้ 1\n🔹 Slot 3: รอไม้ 2"
+
+    slot_lines = []
+    for i in range(MAX_POSITIONS):
+        order = next((o for o in active_orders if o['slot'] == i), None)
+        if order:
+            slot_lines.append(f"🔹 Slot {i+1}: ใช้งานที่ ${order['entry']:.2f} | TP: ${order['take_profit']:.2f}")
+        elif i == 1 and len(active_orders) >= 1:
+            # Slot 2: check cooldown from slot 1
+            slot1 = next((o for o in active_orders if o['slot'] == 0), None)
+            if slot1:
+                elapsed = int(current_time - slot1['entry_ts'])
+                remaining = max(0, SLOT2_COOLDOWN_SECONDS - elapsed)
+                if remaining > 0:
+                    slot_lines.append(f"🔹 Slot 2: เหลือเวลา {remaining}วิก่อนเข้า")
+                else:
+                    slot_lines.append(f"🔹 Slot 2: ✅ พร้อมเข้า")
+            else:
+                slot_lines.append(f"🔹 Slot 2: รอไม้ 1")
+        elif i == 2 and len(active_orders) >= 2:
+            # Slot 3: check cooldown from slot 2
+            slot2 = next((o for o in active_orders if o['slot'] == 1), None)
+            if slot2:
+                elapsed = int(current_time - slot2['entry_ts'])
+                remaining = max(0, SLOT3_COOLDOWN_SECONDS - elapsed)
+                if remaining > 0:
+                    slot_lines.append(f"🔹 Slot 3: เหลือเวลา {remaining}วิก่อนเข้า")
+                else:
+                    slot_lines.append(f"🔹 Slot 3: ✅ พร้อมเข้า")
+            else:
+                slot_lines.append(f"🔹 Slot 3: รอไม้ 2")
+        elif i == 2:
+            slot_lines.append(f"🔹 Slot 3: รอไม้ 2")
+
+    return "\n".join(slot_lines) if slot_lines else "🔹 Slot 1: ✓ พร้อม\n🔹 Slot 2: รอไม้ 1\n🔹 Slot 3: รอไม้ 2"
+
+# ==========================================
+# TELEGRAM COMMAND HANDLER
+# ==========================================
+def get_telegram_updates():
+    global last_update_id
+    if not TG_TOKEN:
+        return []
+    try:
+        response = requests.get(
+            f"https://api.telegram.org/bot{TG_TOKEN}/getUpdates",
+            params={'offset': last_update_id + 1, 'timeout': 5},
+            timeout=10
+        )
+        data = response.json()
+        if data.get('ok') and data.get('result'):
+            return data['result']
+    except:
+        pass
+    return []
+
+def handle_telegram_commands():
+    global last_update_id, IS_RUNNING
+    global HOLDING_TIME, STOP_LOSS_PCT, PROFIT_TARGET_PCT, CONFIDENCE_THRESHOLD, CAPITAL_PER_TRADE, MAKER_ORDER_TIMEOUT
+
+    updates = get_telegram_updates()
+    for update in updates:
+        last_update_id = update['update_id']
+
+        if 'message' not in update or 'text' not in update['message']:
+            continue
+
+        message = update['message']['text'].strip()
+
+        # /status
+        if message == '/status':
+            total_trades = stats['win'] + stats['loss'] + stats['breakeven']
+            win_rate = (stats['win'] / total_trades * 100) if total_trades > 0 else 0
+
+            try:
+                balance = client.futures_account_balance()
+                usdt = next((item for item in balance if item["asset"] == "USDT"), None)
+                balance_text = f"💰 Balance: ${float(usdt['balance']):.2f}"
+            except:
+                balance_text = "💰 Balance: N/A"
+
+            slot_status = build_slot_status_text(time.time())
+
+            send_tg_msg(
+                f"📊 <b>BOT STATUS</b>\n"
+                f"━━━━━━━━━━━━━━━━\n"
+                f"🤖 Status: {'🟢 RUNNING' if IS_RUNNING else '🔴 STOPPED'}\n"
+                f"{balance_text}\n"
+                f"💵 Total PNL: <b>${total_pnl_cash:.4f}</b>\n"
+                f"━━━━━━━━━━━━━━━━\n"
+                f"✅ Win: {stats['win']}\n"
+                f"❌ Loss: {stats['loss']}\n"
+                f"😐 BE: {stats['breakeven']}\n"
+                f"⏳ Unfilled: {stats['unfilled']}\n"
+                f"📈 Win Rate: <b>{win_rate:.1f}%</b>\n"
+                f"━━━━━━━━━━━━━━━━\n"
+                f"📋 Active: {len(active_orders)}\n"
+                f"⏱️ Pending: {len(pending_orders)}\n"
+                f"━━━━━━━━━━━━━━━━\n"
+                f"{slot_status}\n"
+                f"━━━━━━━━━━━━━━━━\n"
+                f"⚙️ <b>SETTINGS:</b>\n"
+                f"🤖 AI Confidence: {CONFIDENCE_THRESHOLD*100:.0f}%\n"
+                f"💰 Capital/Trade: ${CAPITAL_PER_TRADE}\n"
+                f"⏰ Holding: {HOLDING_TIME}s\n"
+                f"🎯 TP: {PROFIT_TARGET_PCT*100:.3f}%\n"
+                f"🛑 SL: {STOP_LOSS_PCT*100:.3f}%\n"
+                f"⏱️ Order Timeout: {MAKER_ORDER_TIMEOUT}s"
+            )
+
+        # Other commands...
+        elif message == '/stop':
+            IS_RUNNING = False
+            send_tg_msg("🔴 <b>BOT STOPPED</b>\nBot stopped trading. Use /start to resume.")
+
+        elif message == '/start':
+            IS_RUNNING = True
+            send_tg_msg("🟢 <b>BOT STARTED</b>\nBot resumed trading!")
+
+        # Add more commands as needed...
+
+def telegram_command_loop():
+    while True:
+        try:
+            handle_telegram_commands()
+        except Exception as e:
+            logger.error(f"❌ Telegram Command Error: {e}")
+        time.sleep(5)
 
 # ==========================================
 # TRADING FUNCTIONS
@@ -171,7 +317,7 @@ def place_limit_buy(symbol, quantity, limit_price):
         )
         return order
     except Exception as e:
-        log(f"❌ Limit Buy Error: {e}", 'ERROR')
+        logger.error(f"❌ Error Placing Limit Buy: {e}")
         return None
 
 def place_limit_sell(symbol, quantity, limit_price):
@@ -187,7 +333,7 @@ def place_limit_sell(symbol, quantity, limit_price):
         )
         return order
     except Exception as e:
-        log(f"❌ Limit Sell Error: {e}", 'ERROR')
+        logger.error(f"❌ Error Placing Limit Sell: {e}")
         return None
 
 def cancel_order(symbol, order_id):
@@ -195,7 +341,7 @@ def cancel_order(symbol, order_id):
         client.futures_cancel_order(symbol=symbol, orderId=order_id)
         return True
     except Exception as e:
-        log(f"❌ Cancel Error: {e}", 'ERROR')
+        logger.error(f"❌ Error Cancelling: {e}")
         return False
 
 def close_position(symbol, quantity, reason):
@@ -209,22 +355,30 @@ def close_position(symbol, quantity, reason):
         )
         return True
     except Exception as e:
-        log(f"❌ Close Error: {e}", 'ERROR')
+        logger.error(f"❌ Error Closing: {e}")
         return False
 
 def check_pending_orders(current_price, current_ts):
+    """Check if pending limit orders should be filled or timeout"""
     global pending_orders, active_orders, stats, timeout_history
 
     for order in pending_orders[:]:
         if current_price <= order['limit_price']:
+            # Order filled
+            logger.info(f"⚡ LIMIT BUY: Slot {order['slot']} @ {order['limit_price']:.2f} | AI: {order.get('confidence', 0)*100:.2f}%")
+
+            # Send Telegram notification
             if order['slot'] == 0:
                 send_tg_msg(
-                    f"🟢 <b>POS 1 FILLED</b>\n"
+                    f"🟢 <b>POSITION 1 FILLED</b>\n"
+                    f"━━━━━━━━━━━━━━━━\n"
                     f"📥 Entry: ${order['limit_price']:.2f}\n"
                     f"🎯 TP: ${order['take_profit']:.2f}\n"
-                    f"🤖 AI: {order.get('confidence', 0)*100:.2f}%"
+                    f"🛑 SL: ${order['stop_loss']:.2f}\n"
+                    f"🤖 AI Conf: {order.get('confidence', 0)*100:.2f}%"
                 )
 
+            # Place TP limit sell order
             sell_order = place_limit_sell(SYMBOL_TRADE, order['quantity'], order['take_profit'])
 
             active_orders.append({
@@ -243,8 +397,9 @@ def check_pending_orders(current_price, current_ts):
             pending_orders.remove(order)
 
         elif current_ts >= order['timeout_ts']:
+            # Order timeout
             stats['unfilled'] += 1
-            log(f"⏳ UNFILLED: Slot {order['slot']} @ {order['limit_price']:.2f}", 'WARN')
+            logger.info(f"⏳ UNFILLED: Slot {order['slot']} | Limit @ {order['limit_price']:.2f} (AI: {order.get('confidence', 0)*100:.2f}%) cancelled (timeout)")
 
             timeout_history.append({
                 'time': datetime.datetime.now().strftime('%H:%M:%S'),
@@ -262,6 +417,7 @@ def check_pending_orders(current_price, current_ts):
             pending_orders.remove(order)
 
 def check_orders(current_price, current_ts):
+    """Check active orders for TP/SL/Timeout"""
     global stats, total_pnl_cash
 
     for order in active_orders[:]:
@@ -298,12 +454,13 @@ def check_orders(current_price, current_ts):
                 else:
                     stats['breakeven'] += 1
 
-                log(f"✅ SOLD [Slot {order['slot']}]: {current_price:.2f} | PNL: {profit:.4f} | Total: {total_pnl_cash:.4f} | {reason}")
+                confidence = order.get('confidence', 0)
+                logger.info(f"✅ SOLD [Slot {order['slot']}]: {current_price:.2f} | PNL: {profit:.4f} | Total: {total_pnl_cash:.4f} | {reason}")
 
                 active_orders.remove(order)
 
 def get_available_slot(current_ts):
-    """Find available slot with cooldown check"""
+    """Find available slot that passed cooldown — returns index or None"""
     total_open = len(active_orders) + len(pending_orders)
     if total_open >= MAX_POSITIONS:
         return None
@@ -315,13 +472,26 @@ def get_available_slot(current_ts):
         first_active_order = active_orders[0]
         entry_time = first_active_order.get('entry_ts', current_ts)
 
-        if entry_time and (current_ts - entry_time) >= COOLDOWN_SECONDS:
+        if entry_time and (current_ts - entry_time) >= SLOT2_COOLDOWN_SECONDS:
             return 1
+
+    if total_open == 2 and len(active_orders) == 2:
+        second_active_order = None
+        for order in active_orders:
+            if order['slot'] == 1:
+                second_active_order = order
+                break
+
+        if second_active_order:
+            entry_time = second_active_order.get('entry_ts', current_ts)
+            if entry_time and (current_ts - entry_time) >= SLOT3_COOLDOWN_SECONDS:
+                return 2
 
     return None
 
 def predict(data_list, last_price, current_ts):
-    global last_trade_time_per_slot, active_orders, pending_orders
+    """AI Prediction and order placement"""
+    global last_trade_time_per_slot
 
     if not IS_RUNNING:
         return
@@ -334,6 +504,7 @@ def predict(data_list, last_price, current_ts):
     if len(df) < 15:
         return
 
+    # Feature engineering
     feat = {
         'total_volume': df['total_volume'].iloc[-1],
         'net_flow': df['net_flow'].iloc[-1],
@@ -354,14 +525,21 @@ def predict(data_list, last_price, current_ts):
 
     prob = model.predict(pd.DataFrame([feat]))[0]
 
-    # Show slot status
+    # Print slot status
     slot_status = ""
     for i in range(MAX_POSITIONS):
         if i == 0:
             remaining = max(0, COOLDOWN_SECONDS - (current_ts - last_trade_time_per_slot[i]))
         elif i == 1 and len(active_orders) > 0:
             entry_time = active_orders[0].get('entry_ts', current_ts)
-            remaining = max(0, COOLDOWN_SECONDS - (current_ts - entry_time))
+            remaining = max(0, SLOT2_COOLDOWN_SECONDS - (current_ts - entry_time))
+        elif i == 2 and len(active_orders) >= 2:
+            slot2 = next((o for o in active_orders if o['slot'] == 1), None)
+            if slot2:
+                entry_time = slot2.get('entry_ts', current_ts)
+                remaining = max(0, SLOT3_COOLDOWN_SECONDS - (current_ts - entry_time))
+            else:
+                remaining = 0
         else:
             remaining = 0
 
@@ -377,21 +555,48 @@ def predict(data_list, last_price, current_ts):
             tp = limit_buy_price * (1 + PROFIT_TARGET_PCT)
             sl = limit_buy_price * (1 - STOP_LOSS_PCT)
 
-            log(f"⚡ LIMIT BUY: Slot {available_slot} @ {limit_buy_price:.2f} | AI: {prob*100:.2f}%")
+            logger.info(f"📊 SIGNAL: Slot {available_slot} | Limit @ {limit_buy_price:.2f} | AI: {prob*100:.2f}% | TP: {tp:.2f} | SL: {sl:.2f}")
 
+            # Send Telegram for slot 2 and 3
             if available_slot == 1:
+                pos1_info = ""
+                if len(active_orders) > 0:
+                    pos1 = active_orders[0]
+                    pos1_info = f"\n📊 Position 1:\n📥 Entry: ${pos1['entry']:.2f}\n🎯 TP: ${pos1['take_profit']:.2f}\n💰 Current: ${last_price:.2f}"
+
                 send_tg_msg(
-                    f"🔥 <b>POS 2 OPENED</b>\n"
+                    f"🔥 <b>POSITION 2 OPENED</b>\n"
+                    f"━━━━━━━━━━━━━━━━\n"
                     f"📥 Entry: ${limit_buy_price:.2f}\n"
                     f"🎯 TP: ${tp:.2f}\n"
-                    f"🤖 AI: {prob*100:.2f}%"
+                    f"🛑 SL: ${sl:.2f}\n"
+                    f"🤖 AI Conf: {prob*100:.2f}%"
+                    f"{pos1_info}"
+                )
+
+            elif available_slot == 2:
+                pos_info = ""
+                if len(active_orders) >= 2:
+                    slot1 = next((o for o in active_orders if o['slot'] == 0), None)
+                    slot2 = next((o for o in active_orders if o['slot'] == 1), None)
+                    if slot1 and slot2:
+                        pos_info = f"\n📊 Position 1: ${slot1['entry']:.2f} | TP: ${slot1['take_profit']:.2f}\n📊 Position 2: ${slot2['entry']:.2f} | TP: ${slot2['take_profit']:.2f}\n💰 Current: ${last_price:.2f}"
+
+                send_tg_msg(
+                    f"🔥🔥 <b>POSITION 3 OPENED</b>\n"
+                    f"━━━━━━━━━━━━━━━━\n"
+                    f"📥 Entry: ${limit_buy_price:.2f}\n"
+                    f"🎯 TP: ${tp:.2f}\n"
+                    f"🛑 SL: ${sl:.2f}\n"
+                    f"🤖 AI Conf: {prob*100:.2f}%"
+                    f"{pos_info}"
                 )
 
             order_response = place_limit_buy(SYMBOL_TRADE, qty, limit_buy_price)
 
             if order_response:
                 order_id = order_response.get('orderId')
-                log(f"✅ Limit Order Placed | Slot {available_slot} | OrderID: {order_id}")
+                logger.info(f"✅ Limit Order Placed | Slot {available_slot} | OrderID: {order_id}")
 
                 pending_orders.append({
                     'limit_price': limit_buy_price,
@@ -407,10 +612,10 @@ def predict(data_list, last_price, current_ts):
                 last_trade_time_per_slot[available_slot] = current_ts
 
         except Exception as e:
-            log(f"❌ BUY ERROR: {e}", 'ERROR')
+            logger.error(f"❌ BUY ERROR: {e}")
 
 # ==========================================
-# WEBSOCKET HANDLER
+# WEBSOCKET RUNNER
 # ==========================================
 def on_message(ws, msg):
     global current_sec
@@ -437,31 +642,42 @@ def on_message(ws, msg):
         current_sec['low'] = min(current_sec['low'], p)
 
 def on_error(ws, error):
-    log(f"❌ WebSocket Error: {error}", 'ERROR')
+    logger.error(f"❌ WebSocket Error: {error}")
 
 def on_close(ws, close_status_code, close_msg):
-    log(f"⚠️ WebSocket Closed: {close_status_code} - {close_msg}", 'WARN')
+    logger.warning(f"⚠️ WebSocket Closed: {close_msg}")
 
 def on_open(ws):
-    log(f"🚀 Bot Started - Symbol: {SYMBOL_TRADE}")
-    send_tg_msg(
-        f"🚀 <b>BOT STARTED</b>\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"📊 Symbol: {SYMBOL_TRADE}\n"
-        f"🤖 AI Conf: {CONFIDENCE_THRESHOLD*100:.0f}%\n"
-        f"💰 Capital: ${CAPITAL_PER_TRADE}"
-    )
+    logger.info(f"✅ WebSocket Connected: {SYMBOL_WS}@aggTrade")
 
 # ==========================================
 # MAIN
 # ==========================================
 if __name__ == "__main__":
-    ws_url = f"wss://{'demo-' if USE_TESTNET else ''}fstream.binance.com/ws/{SYMBOL_WS}@aggTrade"
+    logger.info(f"🚀 Bot Started | Bot ID: {BOT_ID} | Symbol: {SYMBOL_TRADE}")
+    logger.info(f"📊 Config: Confidence={CONFIDENCE_THRESHOLD*100:.0f}%, Capital=${CAPITAL_PER_TRADE}, Holding={HOLDING_TIME}s")
+    logger.info(f"🎯 TP={PROFIT_TARGET_PCT*100:.3f}%, SL={STOP_LOSS_PCT*100:.3f}%, Slots={MAX_POSITIONS}")
+
+    send_tg_msg(
+        f"🚀 <b>AI BOT STARTED</b>\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"🔕 Silent Mode: แจ้งทุก 30 นาที\n"
+        f"ใช้ /status เพื่อดูสถานะ"
+    )
+
+    # Start Telegram command handler
+    if TG_TOKEN and TG_CHAT_ID:
+        telegram_thread = threading.Thread(target=telegram_command_loop, daemon=True)
+        telegram_thread.start()
+        logger.info("✅ Telegram Command Handler Started")
+
+    # Start WebSocket
     ws = websocket.WebSocketApp(
-        ws_url,
+        f"wss://{'demo-' if USE_TESTNET else ''}fstream.binance.com/ws/{SYMBOL_WS}@aggTrade",
         on_message=on_message,
         on_error=on_error,
         on_close=on_close,
         on_open=on_open
     )
+
     ws.run_forever()
