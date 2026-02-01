@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 
 function SimplePNLChart({ data, width = 800, height = 250 }) {
-  const { bars, maxPnl, minPnl, labels, gridLines } = useMemo(() => {
+  const { bars, maxPnl, minPnl, labels, gridLines, zeroY, padding } = useMemo(() => {
     if (!data || data.length === 0) {
       return { bars: [], maxPnl: 0, minPnl: 0, labels: [], gridLines: [] }
     }
