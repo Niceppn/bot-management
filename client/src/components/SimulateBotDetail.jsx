@@ -157,7 +157,32 @@ function SimulateBotDetail({ onLogout }) {
       }
 
       // Track entry price from various patterns
-      // Pattern 1: "POS X FILLED Entry: $price" or "POS X FILLED @ $price"
+      // Pattern 1: "⚡ LIMIT BUY: Slot X @ price" - This means filled!
+      const limitBuyMatch = msg.match(/⚡\s*LIMIT BUY:\s*Slot\s+(\d+)\s*@\s*(\d+\.?\d*)/i)
+      if (limitBuyMatch) {
+        const slot = parseInt(limitBuyMatch[1])
+        const entry = parseFloat(limitBuyMatch[2])
+
+        console.log(`[DEBUG] LIMIT BUY detected: Slot ${slot}, Entry: ${entry}`)
+
+        stats.slotInfo[slot] = {
+          status: 'active',
+          entry: entry,
+          lastClosedTime: null
+        }
+
+        const exists = stats.activeOrders.find(o => o.slot === slot)
+        if (!exists) {
+          stats.activeOrders.push({
+            slot: slot,
+            entry: entry,
+            tp: entry * (1 + (config?.profit_target_pct || 0.00015)),
+            sl: entry * (1 - (config?.stop_loss_pct || 0.009))
+          })
+        }
+      }
+
+      // Pattern 2: "POS X FILLED Entry: $price" or "POS X FILLED @ $price"
       const posFilledMatch = msg.match(/POS\s+(\d+)\s+FILLED.*(?:Entry|@):\s*\$?(\d+\.?\d*)/i)
       if (posFilledMatch) {
         const slot = parseInt(posFilledMatch[1]) - 1
@@ -179,9 +204,9 @@ function SimulateBotDetail({ onLogout }) {
         }
       }
 
-      // Pattern 2: "Slot X | Entry: $price" or "Slot X @ $price"
+      // Pattern 3: "Slot X | Entry: $price" or "Slot X @ $price"
       const slotEntryMatch = msg.match(/Slot\s+(\d+).*(?:Entry|@):\s*\$?(\d+\.?\d*)/i)
-      if (slotEntryMatch && !msg.includes('Limit Order Placed')) {
+      if (slotEntryMatch && !msg.includes('Limit Order Placed') && !msg.includes('LIMIT BUY')) {
         const slot = parseInt(slotEntryMatch[1])
         const entry = parseFloat(slotEntryMatch[2])
 
@@ -205,7 +230,7 @@ function SimulateBotDetail({ onLogout }) {
         }
       }
 
-      // Pattern 3: "FILLED [Slot X] @ $price" or similar
+      // Pattern 4: "FILLED [Slot X] @ $price" or similar
       const filledSlotMatch = msg.match(/FILLED.*Slot\s+(\d+).*\$?(\d+\.?\d*)/i)
       if (filledSlotMatch) {
         const slot = parseInt(filledSlotMatch[1])
