@@ -18,7 +18,9 @@ function SimulateBotDetail({ onLogout }) {
   const [editConfig, setEditConfig] = useState({})
   const [pnlHistory, setPnlHistory] = useState([])
   const [recentTrades, setRecentTrades] = useState([])
+  const [slotCooldowns, setSlotCooldowns] = useState({}) // Track cooldown timers
   const pnlHistoryRef = useRef([])
+  const lastTradeTimeRef = useRef({})
 
   useEffect(() => {
     loadBotData()
@@ -198,12 +200,31 @@ function SimulateBotDetail({ onLogout }) {
     return stats
   }
 
-  const handleResetDashboard = () => {
-    if (window.confirm('Are you sure you want to reset dashboard stats? This will clear PNL history and recent trades display.')) {
-      setPnlHistory([])
-      setRecentTrades([])
-      pnlHistoryRef.current = []
-      alert('Dashboard reset successfully!')
+  const handleResetDashboard = async () => {
+    if (window.confirm('⚠️ Are you sure you want to RESET EVERYTHING? This will:\n- Stop the bot\n- Clear all statistics\n- Clear PNL history\n- Clear recent trades\n- Restart the bot fresh\n\nThis action cannot be undone!')) {
+      try {
+        // Stop bot first
+        if (bot.status === 'running') {
+          await botAPI.stop(id)
+          await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
+        }
+
+        // Clear all state
+        setPnlHistory([])
+        setRecentTrades([])
+        setSlotCooldowns({})
+        pnlHistoryRef.current = []
+        lastTradeTimeRef.current = {}
+        setLogs([])
+
+        // Restart bot
+        await botAPI.start(id)
+        await loadBotData()
+
+        alert('✅ Dashboard reset successfully! Bot restarted.')
+      } catch (err) {
+        setError('Failed to reset: ' + err.message)
+      }
     }
   }
 
@@ -227,8 +248,38 @@ function SimulateBotDetail({ onLogout }) {
   useEffect(() => {
     if (stats.trades.length > 0) {
       setRecentTrades(stats.trades.slice(-10).reverse()) // Last 10 trades
+
+      // Update last trade time for cooldown calculation
+      stats.trades.forEach(trade => {
+        const tradeSlot = 0 // Assuming from log parsing we can get slot
+        lastTradeTimeRef.current[tradeSlot] = trade.time
+      })
     }
   }, [stats.trades.length])
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newCooldowns = {}
+      const cooldownSeconds = config?.cooldown_seconds || 0
+
+      // Calculate cooldown for each slot
+      for (let slot = 0; slot < 2; slot++) {
+        const lastTradeTime = lastTradeTimeRef.current[slot]
+        if (lastTradeTime) {
+          const elapsed = (Date.now() - lastTradeTime) / 1000
+          const remaining = Math.max(0, cooldownSeconds - elapsed)
+          newCooldowns[slot] = Math.ceil(remaining)
+        } else {
+          newCooldowns[slot] = 0
+        }
+      }
+
+      setSlotCooldowns(newCooldowns)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [config?.cooldown_seconds])
 
   if (isLoading) {
     return (
@@ -358,27 +409,25 @@ function SimulateBotDetail({ onLogout }) {
                 </div>
               </div>
 
-              {/* Recent Trades */}
-              <div className="recent-trades-section">
-                <h3>📝 Recent Trades</h3>
+              {/* Recent Trades - Compact */}
+              <div className="recent-trades-section compact">
+                <h3>📝 Recent Trades (Last 5)</h3>
                 {recentTrades.length === 0 ? (
                   <div className="empty-state-small">
                     <p>No trades yet</p>
                   </div>
                 ) : (
-                  <div className="trades-list">
-                    {recentTrades.map((trade, idx) => (
-                      <div key={idx} className={`trade-item ${trade.type.toLowerCase()}`}>
-                        <div className="trade-icon">
+                  <div className="trades-list-compact">
+                    {recentTrades.slice(0, 5).map((trade, idx) => (
+                      <div key={idx} className={`trade-item-compact ${trade.type.toLowerCase()}`}>
+                        <span className="trade-icon-compact">
                           {trade.type === 'WIN' ? '✅' : trade.type === 'LOSS' ? '❌' : trade.type === 'BREAKEVEN' ? '😐' : '⏳'}
-                        </div>
-                        <div className="trade-details">
-                          <div className="trade-type">{trade.type}</div>
-                          <div className="trade-time">{new Date(trade.time).toLocaleTimeString()}</div>
-                        </div>
-                        <div className={`trade-pnl ${trade.pnl >= 0 ? 'positive' : 'negative'}`}>
+                        </span>
+                        <span className="trade-type-compact">{trade.type}</span>
+                        <span className="trade-time-compact">{new Date(trade.time).toLocaleTimeString()}</span>
+                        <span className={`trade-pnl-compact ${trade.pnl >= 0 ? 'positive' : 'negative'}`}>
                           {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(4)}
-                        </div>
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -452,25 +501,75 @@ function SimulateBotDetail({ onLogout }) {
                     </div>
                   )}
 
-                  {/* Slot Status */}
+                  {/* Slot Status with Cooldown */}
                   <div className="slot-status">
-                    <h4>Slot Status</h4>
+                    <h4>🎰 Slot Status & Availability</h4>
+                    <p className="slot-description">แสดงสถานะการใช้งานไม้แต่ละตัว และเวลาที่จะพร้อมใช้งาน</p>
                     <div className="slot-grid">
-                      <div className={`slot-item ${stats.activeOrders.some(o => o.slot === 0) ? 'active' : 'available'}`}>
-                        <span className="slot-label">Slot 1</span>
-                        <span className="slot-status-text">
-                          {stats.activeOrders.some(o => o.slot === 0) ? '🟢 Active' : '✅ Ready'}
-                        </span>
+                      <div className={`slot-item ${stats.activeOrders.some(o => o.slot === 0) ? 'active' : slotCooldowns[0] > 0 ? 'cooldown' : 'available'}`}>
+                        <div className="slot-header">
+                          <span className="slot-label">🎯 ไม้ที่ 1 (Slot 1)</span>
+                          {stats.activeOrders.some(o => o.slot === 0) && (
+                            <span className="slot-badge active">กำลังใช้งาน</span>
+                          )}
+                        </div>
+                        <div className="slot-status-text">
+                          {stats.activeOrders.some(o => o.slot === 0) ? (
+                            <div className="slot-active-info">
+                              <span className="status-icon">🟢</span>
+                              <span>กำลังเทรดอยู่</span>
+                            </div>
+                          ) : slotCooldowns[0] > 0 ? (
+                            <div className="slot-cooldown-info">
+                              <span className="status-icon">⏳</span>
+                              <span>คูลดาวน์ เหลือ {slotCooldowns[0]} วินาที</span>
+                            </div>
+                          ) : (
+                            <div className="slot-ready-info">
+                              <span className="status-icon">✅</span>
+                              <span>พร้อมใช้งาน</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className={`slot-item ${stats.activeOrders.some(o => o.slot === 1) ? 'active' : 'cooldown'}`}>
-                        <span className="slot-label">Slot 2</span>
-                        <span className="slot-status-text">
-                          {stats.activeOrders.some(o => o.slot === 1)
-                            ? '🟢 Active'
-                            : stats.activeOrders.length > 0
-                              ? '⏳ Cooldown'
-                              : '⏸️ Waiting'}
-                        </span>
+
+                      <div className={`slot-item ${stats.activeOrders.some(o => o.slot === 1) ? 'active' : slotCooldowns[1] > 0 ? 'cooldown' : 'available'}`}>
+                        <div className="slot-header">
+                          <span className="slot-label">🎯 ไม้ที่ 2 (Slot 2)</span>
+                          {stats.activeOrders.some(o => o.slot === 1) && (
+                            <span className="slot-badge active">กำลังใช้งาน</span>
+                          )}
+                        </div>
+                        <div className="slot-status-text">
+                          {stats.activeOrders.some(o => o.slot === 1) ? (
+                            <div className="slot-active-info">
+                              <span className="status-icon">🟢</span>
+                              <span>กำลังเทรดอยู่</span>
+                            </div>
+                          ) : slotCooldowns[1] > 0 ? (
+                            <div className="slot-cooldown-info">
+                              <span className="status-icon">⏳</span>
+                              <span>คูลดาวน์ เหลือ {slotCooldowns[1]} วินาที</span>
+                            </div>
+                          ) : (
+                            <div className="slot-ready-info">
+                              <span className="status-icon">✅</span>
+                              <span>พร้อมใช้งาน</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Summary */}
+                    <div className="slot-summary">
+                      <div className="summary-item">
+                        <span className="summary-label">🎯 ไม้ที่กำลังใช้:</span>
+                        <span className="summary-value">{stats.activeOrders.length} / 2</span>
+                      </div>
+                      <div className="summary-item">
+                        <span className="summary-label">⏱️ คูลดาวน์ที่ตั้งไว้:</span>
+                        <span className="summary-value">{config?.cooldown_seconds || 0} วินาที</span>
                       </div>
                     </div>
                   </div>
