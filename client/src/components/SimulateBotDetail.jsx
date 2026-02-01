@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { botAPI, simulateBotAPI } from '../services/api'
 import Sidebar from './Sidebar'
-import { LineChart, Line, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './SimulateBotDetail.css'
 
 function SimulateBotDetail({ onLogout }) {
@@ -16,7 +15,6 @@ function SimulateBotDetail({ onLogout }) {
   const [activeTab, setActiveTab] = useState('overview')
   const [editMode, setEditMode] = useState(false)
   const [editConfig, setEditConfig] = useState({})
-  const [pnlHistory, setPnlHistory] = useState([])
 
   useEffect(() => {
     loadBotData()
@@ -112,8 +110,6 @@ function SimulateBotDetail({ onLogout }) {
       return stats
     }
 
-    const pnlData = []
-
     // Parse logs to extract stats
     logs.forEach(log => {
       const msg = log.message
@@ -133,11 +129,6 @@ function SimulateBotDetail({ onLogout }) {
       const pnlMatch = msg.match(/Total:\s*\$?(-?\d+\.?\d*)/i)
       if (pnlMatch) {
         stats.totalPnl = parseFloat(pnlMatch[1])
-        // Add to PNL history
-        pnlData.push({
-          time: new Date(log.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          pnl: parseFloat(pnlMatch[1])
-        })
       }
 
       // Parse active positions from log messages
@@ -168,11 +159,6 @@ function SimulateBotDetail({ onLogout }) {
         stats.activeOrders = stats.activeOrders.filter(o => o.slot !== slot)
       }
     })
-
-    // Update PNL history (keep last 20 points)
-    if (pnlData.length > 0) {
-      setPnlHistory(pnlData.slice(-20))
-    }
 
     return stats
   }
@@ -315,84 +301,6 @@ function SimulateBotDetail({ onLogout }) {
                   </div>
                 </div>
               </div>
-
-              {/* Charts Section */}
-              {totalTrades > 0 && (
-                <div className="charts-section">
-                  <div className="charts-grid">
-                    {/* PNL Chart */}
-                    {pnlHistory && pnlHistory.length > 1 && (
-                      <div className="chart-card">
-                        <h3>📈 PNL Over Time</h3>
-                        <ResponsiveContainer width="100%" height={250}>
-                          <LineChart data={pnlHistory} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                            <XAxis
-                              dataKey="time"
-                              stroke="#718096"
-                              style={{ fontSize: '12px' }}
-                              tick={{ fill: '#718096' }}
-                            />
-                            <YAxis
-                              stroke="#718096"
-                              style={{ fontSize: '12px' }}
-                              tick={{ fill: '#718096' }}
-                            />
-                            <Tooltip />
-                            <Line
-                              type="monotone"
-                              dataKey="pnl"
-                              stroke="#10b981"
-                              strokeWidth={3}
-                              dot={{ fill: '#10b981', r: 4 }}
-                              activeDot={{ r: 6 }}
-                              isAnimationActive={false}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-
-                    {/* Win/Loss Pie Chart */}
-                    {(() => {
-                      const pieData = [
-                        { name: 'Win', value: stats.win || 0, color: '#10b981' },
-                        { name: 'Loss', value: stats.loss || 0, color: '#ef4444' },
-                        { name: 'Breakeven', value: stats.breakeven || 0, color: '#f59e0b' },
-                        { name: 'Unfilled', value: stats.unfilled || 0, color: '#6b7280' }
-                      ].filter(entry => entry.value > 0)
-
-                      return pieData.length > 0 ? (
-                        <div className="chart-card">
-                          <h3>🥧 Win/Loss Distribution</h3>
-                          <ResponsiveContainer width="100%" height={250}>
-                            <PieChart>
-                              <Pie
-                                data={pieData}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                label={(entry) => {
-                                  if (!entry || typeof entry.percent !== 'number') return ''
-                                  return `${entry.name} ${(entry.percent * 100).toFixed(0)}%`
-                                }}
-                                outerRadius={80}
-                                dataKey="value"
-                                isAnimationActive={false}
-                              >
-                                {pieData.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                              </Pie>
-                              <Tooltip />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      ) : null
-                    })()}
-                  </div>
-                </div>
-              )}
 
               {/* Active Positions */}
               {bot.status === 'running' && (
