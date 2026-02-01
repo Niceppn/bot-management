@@ -15,7 +15,6 @@ function BotDashboard({ onLogout }) {
   const [error, setError] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [deletingBot, setDeletingBot] = useState(null)
-  const [showCreateMenu, setShowCreateMenu] = useState(false)
 
   useEffect(() => {
     fetchBots()
@@ -137,27 +136,18 @@ function BotDashboard({ onLogout }) {
                   ))}
                 </select>
               </div>
-              <div className="create-bot-dropdown">
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setShowCreateMenu(!showCreateMenu)}
-                >
-                  + Create Bot ▼
-                </button>
-                {showCreateMenu && (
-                  <div className="create-bot-menu">
-                    <button onClick={() => { navigate('/bots/create/trading'); setShowCreateMenu(false) }}>
-                      🤖 Trading Bot
-                    </button>
-                    <button onClick={() => { navigate('/bots/create/simulate'); setShowCreateMenu(false) }}>
-                      🎮 Simulate Bot
-                    </button>
-                    <button onClick={() => { navigate('/bots/create/price-collector'); setShowCreateMenu(false) }}>
-                      📊 Price Collector
-                    </button>
-                  </div>
-                )}
-              </div>
+              <button
+                className="btn btn-primary"
+                onClick={() => navigate('/bots/create/price-collector')}
+              >
+                + Create Price Collector
+              </button>
+              <button
+                className="btn btn-success"
+                onClick={() => navigate('/bots/create/simulate')}
+              >
+                + Simulate Bot
+              </button>
             </div>
           </header>
 

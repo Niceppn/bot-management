@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './components/Login'
 import BotDashboard from './components/BotDashboard'
 import BotDetail from './components/BotDetail'
-import IDETempBot from './components/IDETempBot'
+import CreatePriceCollectorBot from './components/CreatePriceCollectorBot'
 import PriceCollectorDetail from './components/PriceCollectorDetail'
 import CreateTradingBot from './components/CreateTradingBot'
 import TradingBotDetail from './components/TradingBotDetail'
@@ -66,7 +66,7 @@ function App() {
           path="/bots/create/price-collector"
           element={
             isAuthenticated ?
-              <IDETempBot onLogout={handleLogout} /> :
+              <CreatePriceCollectorBot onLogout={handleLogout} /> :
               <Navigate to="/login" replace />
           }
         />
