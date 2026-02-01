@@ -36,10 +36,10 @@ function SimplePNLChart({ data, width = 600, height = 200 }) {
   }
 
   return (
-    <svg width={width} height={height} style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e9ecef' }}>
+    <svg width={width} height={height} style={{ background: '#12161B', borderRadius: '12px', border: '1px solid #2B3139' }}>
       {/* Grid lines */}
-      <line x1="20" y1="20" x2="20" y2={height - 20} stroke="#dee2e6" strokeWidth="1" />
-      <line x1="20" y1={height - 20} x2={width - 20} y2={height - 20} stroke="#dee2e6" strokeWidth="1" />
+      <line x1="20" y1="20" x2="20" y2={height - 20} stroke="#2B3139" strokeWidth="1" />
+      <line x1="20" y1={height - 20} x2={width - 20} y2={height - 20} stroke="#2B3139" strokeWidth="1" />
 
       {/* Zero line */}
       {minPnl < 0 && maxPnl > 0 && (
@@ -48,7 +48,7 @@ function SimplePNLChart({ data, width = 600, height = 200 }) {
           y1={20 + (height - 40) * (1 - (0 - minPnl) / (maxPnl - minPnl))}
           x2={width - 20}
           y2={20 + (height - 40) * (1 - (0 - minPnl) / (maxPnl - minPnl))}
-          stroke="#dee2e6"
+          stroke="#2B3139"
           strokeWidth="1"
           strokeDasharray="4"
         />
@@ -76,10 +76,10 @@ function SimplePNLChart({ data, width = 600, height = 200 }) {
       ))}
 
       {/* Labels */}
-      <text x="25" y="15" fontSize="10" fill="#6c757d">
+      <text x="25" y="15" fontSize="10" fill="#8B92A0">
         ${maxPnl.toFixed(2)}
       </text>
-      <text x="25" y={height - 10} fontSize="10" fill="#6c757d">
+      <text x="25" y={height - 10} fontSize="10" fill="#8B92A0">
         ${minPnl.toFixed(2)}
       </text>
     </svg>
