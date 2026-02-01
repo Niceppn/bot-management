@@ -125,29 +125,84 @@ function SimulateBotDetail({ onLogout }) {
     logs.forEach(log => {
       const msg = log.message
 
-      // Track "Limit Order Placed" - when order is placed (pending)
-      const orderPlacedMatch = msg.match(/Limit Order Placed.*Slot\s+(\d+)/i)
+      // Track "Limit Order Placed" - when order is placed (pending with order ID)
+      const orderPlacedMatch = msg.match(/Limit Order Placed.*Slot\s+(\d+).*OrderID:\s*(\d+)/i)
       if (orderPlacedMatch) {
         const slot = parseInt(orderPlacedMatch[1])
-        stats.slotInfo[slot] = {
-          status: 'pending',
-          entry: null,
-          lastClosedTime: null
+        const orderId = orderPlacedMatch[2]
+
+        // Keep existing entry if already filled, otherwise set to pending
+        if (!stats.slotInfo[slot] || stats.slotInfo[slot].status !== 'active') {
+          stats.slotInfo[slot] = {
+            status: 'pending',
+            orderId: orderId,
+            entry: null,
+            lastClosedTime: null
+          }
         }
       }
 
-      // Track "POS X FILLED" - when order is filled (active)
-      const filledMatch = msg.match(/POS\s+(\d+)\s+FILLED.*Entry:\s*\$?(\d+\.?\d*)/i)
-      if (filledMatch) {
-        const slot = parseInt(filledMatch[1]) - 1
-        const entry = parseFloat(filledMatch[2])
+      // Track entry price from various patterns
+      // Pattern 1: "POS X FILLED Entry: $price" or "POS X FILLED @ $price"
+      const posFilledMatch = msg.match(/POS\s+(\d+)\s+FILLED.*(?:Entry|@):\s*\$?(\d+\.?\d*)/i)
+      if (posFilledMatch) {
+        const slot = parseInt(posFilledMatch[1]) - 1
+        const entry = parseFloat(posFilledMatch[2])
         stats.slotInfo[slot] = {
           status: 'active',
           entry: entry,
           lastClosedTime: null
         }
 
-        // Add to active orders if not already there
+        const exists = stats.activeOrders.find(o => o.slot === slot)
+        if (!exists) {
+          stats.activeOrders.push({
+            slot: slot,
+            entry: entry,
+            tp: entry * (1 + (config?.profit_target_pct || 0.00015)),
+            sl: entry * (1 - (config?.stop_loss_pct || 0.009))
+          })
+        }
+      }
+
+      // Pattern 2: "Slot X | Entry: $price" or "Slot X @ $price"
+      const slotEntryMatch = msg.match(/Slot\s+(\d+).*(?:Entry|@):\s*\$?(\d+\.?\d*)/i)
+      if (slotEntryMatch && !msg.includes('Limit Order Placed')) {
+        const slot = parseInt(slotEntryMatch[1])
+        const entry = parseFloat(slotEntryMatch[2])
+
+        // Only update if not already in cooldown
+        if (!stats.slotInfo[slot] || stats.slotInfo[slot].status !== 'cooldown') {
+          stats.slotInfo[slot] = {
+            status: 'active',
+            entry: entry,
+            lastClosedTime: null
+          }
+
+          const exists = stats.activeOrders.find(o => o.slot === slot)
+          if (!exists) {
+            stats.activeOrders.push({
+              slot: slot,
+              entry: entry,
+              tp: entry * (1 + (config?.profit_target_pct || 0.00015)),
+              sl: entry * (1 - (config?.stop_loss_pct || 0.009))
+            })
+          }
+        }
+      }
+
+      // Pattern 3: "FILLED [Slot X] @ $price" or similar
+      const filledSlotMatch = msg.match(/FILLED.*Slot\s+(\d+).*\$?(\d+\.?\d*)/i)
+      if (filledSlotMatch) {
+        const slot = parseInt(filledSlotMatch[1])
+        const entry = parseFloat(filledSlotMatch[2])
+
+        stats.slotInfo[slot] = {
+          status: 'active',
+          entry: entry,
+          lastClosedTime: null
+        }
+
         const exists = stats.activeOrders.find(o => o.slot === slot)
         if (!exists) {
           stats.activeOrders.push({
@@ -160,19 +215,16 @@ function SimulateBotDetail({ onLogout }) {
       }
 
       // Track "SOLD" - when position is closed
-      const soldMatch = msg.match(/SOLD\s+\[Slot\s+(\d+)\]/i)
+      const soldMatch = msg.match(/SOLD.*Slot\s+(\d+)/i)
       if (soldMatch) {
-        const slot = parseInt(soldMatch[1]) - 1
+        const slot = parseInt(soldMatch[1])
         stats.slotInfo[slot] = {
           status: 'cooldown',
           entry: null,
           lastClosedTime: log.timestamp
         }
 
-        // Remove from active orders
         stats.activeOrders = stats.activeOrders.filter(o => o.slot !== slot)
-
-        // Update lastTradeTimeRef for cooldown
         lastTradeTimeRef.current[slot] = log.timestamp
       }
 
@@ -502,7 +554,9 @@ function SimulateBotDetail({ onLogout }) {
                           {stats.slotInfo?.[0]?.status === 'pending' ? (
                             <>
                               <span className="status-icon-big">⏰</span>
-                              <span className="status-text-big">รอเข้า...</span>
+                              <span className="status-text-big">
+                                สั่งซื้อแล้ว{stats.slotInfo[0].orderId ? ` #${stats.slotInfo[0].orderId.slice(-6)}` : ''}
+                              </span>
                             </>
                           ) : stats.slotInfo?.[0]?.status === 'active' ? (
                             <>
@@ -537,7 +591,9 @@ function SimulateBotDetail({ onLogout }) {
                           {stats.slotInfo?.[1]?.status === 'pending' ? (
                             <>
                               <span className="status-icon-big">⏰</span>
-                              <span className="status-text-big">รอเข้า...</span>
+                              <span className="status-text-big">
+                                สั่งซื้อแล้ว{stats.slotInfo[1].orderId ? ` #${stats.slotInfo[1].orderId.slice(-6)}` : ''}
+                              </span>
                             </>
                           ) : stats.slotInfo?.[1]?.status === 'active' ? (
                             <>
