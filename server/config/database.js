@@ -312,6 +312,8 @@ export const initializeDatabase = () => {
       progress INTEGER DEFAULT 0,
       accuracy REAL DEFAULT 0,
       model_file_path TEXT,
+      pid INTEGER,
+      log_message TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       started_at TEXT,
       completed_at TEXT

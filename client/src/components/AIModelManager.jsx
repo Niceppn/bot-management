@@ -1,283 +1,239 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { aiModelsAPI } from '../services/api'
 import Sidebar from './Sidebar'
+import AIModelCard from './AIModelCard'
 import CreateAIModelModal from './CreateAIModelModal'
-import './AIModelManager.css'
+import EditAIModelModal from './EditAIModelModal'
+import { aiModelsAPI } from '../services/api'
+import './AIModelManager_new.css'
 
-const STATUS_COLORS = {
-  'created': 'status-pending',
-  'training': 'status-running',
-  'completed': 'status-success',
-  'failed': 'status-error',
-  'stopped': 'status-warning'
-}
-
-const STATUS_ICONS = {
-  'created': '📝',
-  'training': '🔄',
-  'completed': '✅',
-  'failed': '❌',
-  'stopped': '⏹️'
-}
-
-function AIModelManager({ onLogout }) {
-  const navigate = useNavigate()
+const AIModelManager = ({ onLogout }) => {
   const [models, setModels] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingModel, setEditingModel] = useState(null)
+  const [filter, setFilter] = useState('all')
+  const navigate = useNavigate()
 
   useEffect(() => {
     loadModels()
-    
-    // Auto refresh every 5 seconds for training progress
     const interval = setInterval(loadModels, 5000)
     return () => clearInterval(interval)
   }, [])
 
   const loadModels = async () => {
     try {
-      setError('')
-      const data = await aiModelsAPI.getAll()
-      setModels(data)
+      const response = await aiModelsAPI.getAll()
+      if (response.success) {
+        setModels(response.data)
+        setError(null)
+      }
     } catch (err) {
-      setError(err.message)
+      console.error('Error loading models:', err)
+      setError('Failed to load models')
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   const handleStartTraining = async (modelId) => {
     try {
-      setError('')
-      await aiModelsAPI.startTraining(modelId)
-      setSuccess('Training started successfully!')
-      setTimeout(() => setSuccess(''), 3000)
-      await loadModels()
+      const response = await aiModelsAPI.startTraining(modelId)
+      if (response.success) {
+        loadModels()
+      }
     } catch (err) {
-      setError(err.message)
+      console.error('Error starting training:', err)
+      alert('Failed to start training: ' + err.message)
     }
   }
 
   const handleStopTraining = async (modelId) => {
-    if (!confirm('Are you sure you want to stop training?')) return
-    
     try {
-      setError('')
-      await aiModelsAPI.stopTraining(modelId)
-      setSuccess('Training stopped successfully!')
-      setTimeout(() => setSuccess(''), 3000)
-      await loadModels()
+      const response = await aiModelsAPI.stopTraining(modelId)
+      if (response.success) {
+        loadModels()
+      }
     } catch (err) {
-      setError(err.message)
+      console.error('Error stopping training:', err)
+      alert('Failed to stop training: ' + err.message)
     }
+  }
+
+  const handleEdit = (model) => {
+    setEditingModel(model)
+    setShowEditModal(true)
   }
 
   const handleDelete = async (modelId) => {
-    if (!confirm('Are you sure you want to delete this model? This action cannot be undone.')) {
-      return
-    }
-    
     try {
-      setError('')
-      await aiModelsAPI.delete(modelId)
-      setSuccess('Model deleted successfully!')
-      setTimeout(() => setSuccess(''), 3000)
-      await loadModels()
+      const response = await aiModelsAPI.delete(modelId)
+      if (response.success) {
+        loadModels()
+      }
     } catch (err) {
-      setError(err.message)
+      console.error('Error deleting model:', err)
+      alert('Failed to delete model: ' + err.message)
     }
   }
 
-  const handleModelCreated = async () => {
+  const handleCreateSuccess = () => {
     setShowCreateModal(false)
-    await loadModels()
-    setSuccess('AI Model created successfully!')
-    setTimeout(() => setSuccess(''), 3000)
+    loadModels()
   }
 
-  const formatDateTime = (dateStr) => {
-    if (!dateStr) return 'N/A'
-    return new Date(dateStr).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+  const handleEditSuccess = () => {
+    setShowEditModal(false)
+    setEditingModel(null)
+    loadModels()
   }
 
-  const getParameters = (paramStr) => {
-    try {
-      return JSON.parse(paramStr)
-    } catch {
-      return {}
-    }
+  const getFilteredModels = () => {
+    if (filter === 'all') return models
+    return models.filter(model => model.status === filter)
   }
 
-  if (isLoading) {
-    return (
-      <div className="app-container">
-        <Sidebar activeTab="ai-models" onLogout={onLogout} />
-        <div className="main-content">
-          <div className="loading">Loading AI Models...</div>
-        </div>
-      </div>
-    )
+  const filteredModels = getFilteredModels()
+
+  const statusCounts = {
+    all: models.length,
+    created: models.filter(m => m.status === 'created').length,
+    training: models.filter(m => m.status === 'training').length,
+    completed: models.filter(m => m.status === 'completed').length,
+    failed: models.filter(m => m.status === 'failed').length,
+    stopped: models.filter(m => m.status === 'stopped').length
   }
 
   return (
-    <div className="app-container">
-      <Sidebar activeTab="ai-models" onLogout={onLogout} />
-      <div className="main-content">
-        <div className="page-header">
-          <div className="page-title">
-            <h1>🤖 AI Model Training</h1>
-            <p>Train LightGBM models from crypto trade data</p>
-          </div>
-          <button 
-            className="btn btn-primary"
-            onClick={() => setShowCreateModal(true)}
-          >
-            + Create AI Model
-          </button>
-        </div>
+    <div className="dashboard">
+      <Sidebar onLogout={onLogout} />
 
-        {error && (
-          <div className="alert alert-error">
-            ❌ {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="alert alert-success">
-            ✅ {success}
-          </div>
-        )}
-
-        <div className="models-grid">
-          {models.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">🤖</div>
-              <h3>No AI Models Yet</h3>
-              <p>Create your first AI trading model to get started</p>
-              <button 
-                className="btn btn-primary"
+      <div className="dashboard-content">
+        <div className="ai-model-manager">
+          <header className="dashboard-header">
+            <div className="header-left">
+              <h1 className="dashboard-title">🤖 AI Model Training</h1>
+              <p className="dashboard-subtitle">
+                Train LightGBM models from your crypto trade data
+              </p>
+            </div>
+            <div className="header-actions">
+              <button
+                className="btn-primary"
                 onClick={() => setShowCreateModal(true)}
               >
-                Create First Model
+                <span className="btn-icon">➕</span>
+                Create New Model
               </button>
             </div>
+          </header>
+
+          {error && (
+            <div className="error-banner">
+              <span className="error-icon">⚠️</span>
+              {error}
+            </div>
+          )}
+
+          <div className="filter-bar">
+            <button
+              className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+              onClick={() => setFilter('all')}
+            >
+              All Models
+              <span className="filter-count">{statusCounts.all}</span>
+            </button>
+            <button
+              className={`filter-btn ${filter === 'training' ? 'active' : ''}`}
+              onClick={() => setFilter('training')}
+            >
+              Training
+              <span className="filter-count ice">{statusCounts.training}</span>
+            </button>
+            <button
+              className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
+              onClick={() => setFilter('completed')}
+            >
+              Completed
+              <span className="filter-count guard">{statusCounts.completed}</span>
+            </button>
+            <button
+              className={`filter-btn ${filter === 'created' ? 'active' : ''}`}
+              onClick={() => setFilter('created')}
+            >
+              Ready
+              <span className="filter-count">{statusCounts.created}</span>
+            </button>
+            {statusCounts.failed > 0 && (
+              <button
+                className={`filter-btn ${filter === 'failed' ? 'active' : ''}`}
+                onClick={() => setFilter('failed')}
+              >
+                Failed
+                <span className="filter-count alert-danger">{statusCounts.failed}</span>
+              </button>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="loading-container">
+              <div className="spinner"></div>
+              <p>Loading models...</p>
+            </div>
+          ) : filteredModels.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">🤖</div>
+              <h3>No models found</h3>
+              <p>
+                {filter === 'all'
+                  ? 'Create your first AI model to get started'
+                  : `No models with status "${filter}"`}
+              </p>
+              {filter === 'all' && (
+                <button
+                  className="btn-primary"
+                  onClick={() => setShowCreateModal(true)}
+                >
+                  Create New Model
+                </button>
+              )}
+            </div>
           ) : (
-            models.map(model => {
-              const params = getParameters(model.parameters)
-              
-              return (
-                <div key={model.id} className="model-card glass">
-                  <div className="model-header">
-                    <div className="model-info">
-                      <h3>{model.name}</h3>
-                      <p className="model-symbol">📈 {model.symbol}</p>
-                    </div>
-                    <div className={`model-status ${STATUS_COLORS[model.status]}`}>
-                      {STATUS_ICONS[model.status]} {model.status.toUpperCase()}
-                    </div>
-                  </div>
-
-                  <div className="model-body">
-                    {model.status === 'training' && (
-                      <div className="progress-section">
-                        <div className="progress-bar">
-                          <div 
-                            className="progress-fill"
-                            style={{ width: `${model.progress || 0}%` }}
-                          ></div>
-                        </div>
-                        <span className="progress-text">{model.progress || 0}%</span>
-                      </div>
-                    )}
-
-                    <div className="model-details">
-                      <div className="detail-row">
-                        <span className="detail-label">Profit Target:</span>
-                        <span className="detail-value">{(params.profit_target_pct * 100).toFixed(3)}%</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="detail-label">Confidence:</span>
-                        <span className="detail-value">{(params.confidence_threshold * 100).toFixed(1)}%</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="detail-label">Estimators:</span>
-                        <span className="detail-value">{params.n_estimators}</span>
-                      </div>
-                      {model.accuracy > 0 && (
-                        <div className="detail-row">
-                          <span className="detail-label">Accuracy:</span>
-                          <span className="detail-value accuracy">{(model.accuracy * 100).toFixed(2)}%</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="model-meta">
-                      <div className="meta-item">
-                        <span className="meta-label">Created:</span>
-                        <span className="meta-value">{formatDateTime(model.created_at)}</span>
-                      </div>
-                      {model.started_at && (
-                        <div className="meta-item">
-                          <span className="meta-label">Started:</span>
-                          <span className="meta-value">{formatDateTime(model.started_at)}</span>
-                        </div>
-                      )}
-                      {model.completed_at && (
-                        <div className="meta-item">
-                          <span className="meta-label">Completed:</span>
-                          <span className="meta-value">{formatDateTime(model.completed_at)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="model-actions">
-                    {model.status === 'created' && (
-                      <button
-                        className="btn btn-success"
-                        onClick={() => handleStartTraining(model.id)}
-                      >
-                        ▶ Start Training
-                      </button>
-                    )}
-                    
-                    {model.status === 'training' && (
-                      <button
-                        className="btn btn-warning"
-                        onClick={() => handleStopTraining(model.id)}
-                      >
-                        ⏹ Stop Training
-                      </button>
-                    )}
-
-                    <button
-                      className="btn btn-danger"
-                      onClick={() => handleDelete(model.id)}
-                    >
-                      🗑️ Delete
-                    </button>
-                  </div>
-                </div>
-              )
-            })
+            <div className="models-grid">
+              {filteredModels.map(model => (
+                <AIModelCard
+                  key={model.id}
+                  model={model}
+                  onStart={handleStartTraining}
+                  onStop={handleStopTraining}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
           )}
         </div>
-
-        {showCreateModal && (
-          <CreateAIModelModal
-            onClose={() => setShowCreateModal(false)}
-            onSuccess={handleModelCreated}
-          />
-        )}
       </div>
+
+      {showCreateModal && (
+        <CreateAIModelModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
+
+      {showEditModal && editingModel && (
+        <EditAIModelModal
+          model={editingModel}
+          onClose={() => {
+            setShowEditModal(false)
+            setEditingModel(null)
+          }}
+          onSuccess={handleEditSuccess}
+        />
+      )}
     </div>
   )
 }

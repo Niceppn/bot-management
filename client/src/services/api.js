@@ -426,6 +426,13 @@ export const aiModelsAPI = {
     })
   },
 
+  update: async (modelId, data) => {
+    return apiRequest(`/ai-models/${modelId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  },
+
   delete: async (modelId) => {
     return apiRequest(`/ai-models/${modelId}`, {
       method: 'DELETE'

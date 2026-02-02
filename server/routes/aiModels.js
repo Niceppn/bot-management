@@ -186,27 +186,28 @@ router.post('/:id/start', verifyToken, async (req, res) => {
     `).run(modelId)
 
     // Start training process
-    const scriptPath = path.join(__dirname, '..', '..', 'bots', 'train_model.py')
-    const parameters = JSON.parse(model.parameters)
-    
+    const scriptPath = path.join(__dirname, '..', '..', 'bots', 'train_model_v2.py')
+
     const args = [
       '--model-id', modelId.toString(),
-      '--symbol', model.symbol,
-      '--profit-target-pct', parameters.profit_target_pct.toString(),
-      '--fill-window', parameters.fill_window.toString(),
-      '--profit-window', parameters.profit_window.toString(),
-      '--confidence-threshold', parameters.confidence_threshold.toString(),
-      '--learning-rate', parameters.learning_rate.toString(),
-      '--n-estimators', parameters.n_estimators.toString(),
-      '--max-depth', parameters.max_depth.toString()
+      '--symbol', model.symbol
     ]
 
     const trainingProcess = spawn('python3', [scriptPath, ...args], {
       cwd: path.join(__dirname, '..', '..')
     })
 
+    const pid = trainingProcess.pid
+
     // Store active job
     activeJobs.set(modelId, trainingProcess)
+
+    // Update PID in database
+    db.prepare(`
+      UPDATE ai_training_models
+      SET pid = ?
+      WHERE id = ?
+    `).run(pid, modelId)
 
     // Handle training output
     trainingProcess.stdout.on('data', (data) => {
@@ -231,22 +232,17 @@ router.post('/:id/start', verifyToken, async (req, res) => {
 
     trainingProcess.on('close', (code) => {
       activeJobs.delete(modelId)
-      
+
+      // Clear PID
+      db.prepare(`
+        UPDATE ai_training_models
+        SET pid = NULL
+        WHERE id = ?
+      `).run(modelId)
+
       if (code === 0) {
-        // Training completed successfully
-        db.prepare(`
-          UPDATE ai_training_models 
-          SET status = 'completed', progress = 100, completed_at = datetime('now')
-          WHERE id = ?
-        `).run(modelId)
         console.log(`Training ${modelId} completed successfully`)
       } else {
-        // Training failed
-        db.prepare(`
-          UPDATE ai_training_models 
-          SET status = 'failed', completed_at = datetime('now')
-          WHERE id = ?
-        `).run(modelId)
         console.log(`Training ${modelId} failed with code ${code}`)
       }
     })
@@ -283,8 +279,8 @@ router.post('/:id/stop', verifyToken, (req, res) => {
     // Update status
     const db = getDatabase()
     db.prepare(`
-      UPDATE ai_training_models 
-      SET status = 'stopped', completed_at = datetime('now')
+      UPDATE ai_training_models
+      SET status = 'stopped', pid = NULL, completed_at = datetime('now')
       WHERE id = ?
     `).run(modelId)
 
@@ -298,12 +294,79 @@ router.post('/:id/stop', verifyToken, (req, res) => {
   }
 })
 
+// Update model configuration
+router.put('/:id', verifyToken, (req, res) => {
+  try {
+    const modelId = parseInt(req.params.id)
+    const db = getDatabase()
+
+    // Get existing model
+    const model = db.prepare(`
+      SELECT * FROM ai_training_models WHERE id = ?
+    `).get(modelId)
+
+    if (!model) {
+      return res.status(404).json({ success: false, error: 'Model not found' })
+    }
+
+    // Can only update if not currently training
+    if (model.status === 'training') {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot update model while training is in progress'
+      })
+    }
+
+    const {
+      name,
+      profit_target_pct,
+      fill_window,
+      profit_window,
+      confidence_threshold,
+      learning_rate,
+      n_estimators,
+      max_depth
+    } = req.body
+
+    // Update parameters
+    const existingParams = JSON.parse(model.parameters)
+    const newParams = {
+      profit_target_pct: profit_target_pct !== undefined ? profit_target_pct : existingParams.profit_target_pct,
+      fill_window: fill_window !== undefined ? fill_window : existingParams.fill_window,
+      profit_window: profit_window !== undefined ? profit_window : existingParams.profit_window,
+      confidence_threshold: confidence_threshold !== undefined ? confidence_threshold : existingParams.confidence_threshold,
+      learning_rate: learning_rate !== undefined ? learning_rate : existingParams.learning_rate,
+      n_estimators: n_estimators !== undefined ? n_estimators : existingParams.n_estimators,
+      max_depth: max_depth !== undefined ? max_depth : existingParams.max_depth
+    }
+
+    db.prepare(`
+      UPDATE ai_training_models
+      SET name = ?, parameters = ?
+      WHERE id = ?
+    `).run(name || model.name, JSON.stringify(newParams), modelId)
+
+    res.json({
+      success: true,
+      message: 'Model updated successfully',
+      data: {
+        id: modelId,
+        name: name || model.name,
+        parameters: newParams
+      }
+    })
+  } catch (error) {
+    console.error('Error updating model:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Delete model
 router.delete('/:id', verifyToken, (req, res) => {
   try {
     const modelId = parseInt(req.params.id)
     const db = getDatabase()
-    
+
     // Stop training if active
     const trainingProcess = activeJobs.get(modelId)
     if (trainingProcess) {
