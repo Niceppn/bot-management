@@ -5,7 +5,7 @@ import AIModelCard from './AIModelCard'
 import CreateAIModelModal from './CreateAIModelModal'
 import EditAIModelModal from './EditAIModelModal'
 import { aiModelsAPI } from '../services/api'
-import './AIModelManager_new.css'
+import './AIModelManager.css'
 
 const AIModelManager = ({ onLogout }) => {
   const [models, setModels] = useState([])
