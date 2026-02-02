@@ -11,6 +11,7 @@ import tempBotRoutes from './routes/tempBot.js'
 import tradingRoutes from './routes/trading.js'
 import modelRoutes from './routes/models.js'
 import simulateBotRoutes from './routes/simulateBot.js'
+import aiModelRoutes from './routes/aiModels.js'
 import { initializeDatabase, getDatabase } from './config/database.js'
 
 dotenv.config()
@@ -37,6 +38,7 @@ app.use('/api/temp-bot', tempBotRoutes)
 app.use('/api/trading', tradingRoutes)
 app.use('/api/models', modelRoutes)
 app.use('/api/simulate-bot', simulateBotRoutes)
+app.use('/api/ai-models', aiModelRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

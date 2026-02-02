@@ -8,6 +8,7 @@ import PriceCollectorDetail from './components/PriceCollectorDetail'
 import CreateTradingBot from './components/CreateTradingBot'
 import TradingBotDetail from './components/TradingBotDetail'
 import ModelManager from './components/ModelManager'
+import AIModelManager from './components/AIModelManager'
 import CreateSimulateBot from './components/CreateSimulateBot'
 import SimulateBotDetail from './components/SimulateBotDetail'
 import PromotionFees from './components/PromotionFees'
@@ -115,6 +116,14 @@ function App() {
           element={
             isAuthenticated ?
               <TradingBotDetail onLogout={handleLogout} /> :
+              <Navigate to="/login" replace />
+          }
+        />
+        <Route
+          path="/ai-models"
+          element={
+            isAuthenticated ?
+              <AIModelManager onLogout={handleLogout} /> :
               <Navigate to="/login" replace />
           }
         />

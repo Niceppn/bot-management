@@ -301,5 +301,30 @@ export const initializeDatabase = () => {
     CREATE INDEX IF NOT EXISTS idx_simulate_configs_symbol ON simulate_bot_configs(symbol)
   `)
 
+  // Create ai_training_models table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS ai_training_models (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      parameters TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'created',
+      progress INTEGER DEFAULT 0,
+      accuracy REAL DEFAULT 0,
+      model_file_path TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      started_at TEXT,
+      completed_at TEXT
+    )
+  `)
+
+  // Indexes for ai_training_models
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_ai_models_symbol ON ai_training_models(symbol)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_ai_models_status ON ai_training_models(status)
+  `)
+
   console.log('✅ Database schema initialized')
 }

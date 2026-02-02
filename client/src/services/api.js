@@ -394,3 +394,41 @@ export const simulateBotAPI = {
     })
   }
 }
+
+// AI Models API  
+export const aiModelsAPI = {
+  getAll: async () => {
+    const response = await apiRequest('/ai-models')
+    return response.data || []
+  },
+
+  getSymbols: async () => {
+    const response = await apiRequest('/ai-models/symbols')
+    return response.data || []
+  },
+
+  create: async (data) => {
+    return apiRequest('/ai-models', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  },
+
+  startTraining: async (modelId) => {
+    return apiRequest(`/ai-models/${modelId}/start`, {
+      method: 'POST'
+    })
+  },
+
+  stopTraining: async (modelId) => {
+    return apiRequest(`/ai-models/${modelId}/stop`, {
+      method: 'POST'
+    })
+  },
+
+  delete: async (modelId) => {
+    return apiRequest(`/ai-models/${modelId}`, {
+      method: 'DELETE'
+    })
+  }
+}
