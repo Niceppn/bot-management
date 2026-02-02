@@ -146,7 +146,7 @@ function BotDashboard({ onLogout }) {
                 className="btn btn-success"
                 onClick={() => navigate('/bots/create/simulate')}
               >
-                + สแดงสิ
+                + Simulate Bot
               </button>
             </div>
           </header>
