@@ -139,6 +139,7 @@ function BotDashboard({ onLogout }) {
               <button
                 className="btn btn-primary"
                 onClick={() => navigate('/bots/create/price-collector')}
+                style={{ background: '#ff6600', borderColor: '#ff6600' }}
               >
                 + Create Price Collector
               </button>
