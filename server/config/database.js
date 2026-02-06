@@ -130,6 +130,48 @@ export const initializeDatabase = () => {
     CREATE INDEX IF NOT EXISTS idx_crypto_trades_timestamp ON crypto_trades(timestamp_ms)
   `)
 
+  // Create crypto_trades_v2 table for V2 multi-stream price collector
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS crypto_trades_v2 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bot_id INTEGER NOT NULL,
+      symbol TEXT NOT NULL,
+      timestamp_ms INTEGER NOT NULL,
+      readable_time TEXT NOT NULL,
+      open REAL NOT NULL,
+      high REAL NOT NULL,
+      low REAL NOT NULL,
+      close REAL NOT NULL,
+      buy_volume REAL DEFAULT 0,
+      sell_volume REAL DEFAULT 0,
+      total_volume REAL DEFAULT 0,
+      net_flow REAL DEFAULT 0,
+      buy_count INTEGER DEFAULT 0,
+      sell_count INTEGER DEFAULT 0,
+      trade_count INTEGER DEFAULT 0,
+      best_bid REAL DEFAULT 0,
+      best_ask REAL DEFAULT 0,
+      bid_qty REAL DEFAULT 0,
+      ask_qty REAL DEFAULT 0,
+      spread REAL DEFAULT 0,
+      book_imbalance REAL DEFAULT 0,
+      funding_rate REAL DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (bot_id) REFERENCES bots(id) ON DELETE CASCADE
+    )
+  `)
+
+  // Indexes for crypto_trades_v2
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_crypto_trades_v2_bot_id ON crypto_trades_v2(bot_id)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_crypto_trades_v2_symbol ON crypto_trades_v2(symbol)
+  `)
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_crypto_trades_v2_timestamp ON crypto_trades_v2(timestamp_ms)
+  `)
+
   // Create promotion_fees table
   database.exec(`
     CREATE TABLE IF NOT EXISTS promotion_fees (

@@ -204,6 +204,53 @@ export const tradesAPI = {
     return apiRequest(`/trades/${botId}`, {
       method: 'DELETE'
     })
+  },
+
+  // V2 Multi-Stream endpoints
+  getV2Stats: async (botId) => {
+    const response = await apiRequest(`/trades/${botId}/v2/stats`)
+    return response.data
+  },
+
+  getV2Recent: async (botId, limit = 10) => {
+    const params = new URLSearchParams({ limit: limit.toString() })
+    const response = await apiRequest(`/trades/${botId}/v2/recent?${params}`)
+    return response.data || []
+  },
+
+  exportV2CSV: async (botId) => {
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+    const token = localStorage.getItem('token')
+
+    const response = await fetch(`${apiBaseUrl}/trades/${botId}/v2/export`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to export V2 CSV')
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const disposition = response.headers.get('Content-Disposition')
+    let filename = `trades_v2_${botId}_${new Date().toISOString().split('T')[0]}.csv`
+    if (disposition && disposition.includes('filename=')) {
+      filename = disposition.split('filename=')[1].replace(/"/g, '')
+    }
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  },
+
+  clearV2Trades: async (botId) => {
+    return apiRequest(`/trades/${botId}/v2`, {
+      method: 'DELETE'
+    })
   }
 }
 

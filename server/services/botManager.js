@@ -11,7 +11,65 @@ class BotManager {
   constructor() {
     this.runningProcesses = new Map()
     this.healthCheckInterval = null
+    // Delay recovery เพื่อรอให้ DB init เสร็จ
+    setTimeout(() => this.recoverRunningBots(), 2000)
     this.startHealthMonitor()
+  }
+
+  // Recovery: เช็ค bots ที่ DB บอกว่า running และ sync status
+  recoverRunningBots() {
+    try {
+      const db = getDatabase()
+      const runningBots = db.prepare('SELECT * FROM bots WHERE status = ?').all('running')
+
+      console.log(`🔄 Recovering ${runningBots.length} running bots...`)
+
+      runningBots.forEach(bot => {
+      if (bot.pid && this.isProcessAlive(bot.pid)) {
+        console.log(`✅ Bot ${bot.name} (PID ${bot.pid}) is still running`)
+        // Process ยังอยู่ แต่ไม่มี reference → ต้อง stop เพื่อให้ clean state
+        try {
+          console.log(`⚠️  Bot ${bot.name} has no process reference, stopping for clean state`)
+          process.kill(bot.pid, 'SIGTERM')
+          setTimeout(() => {
+            if (this.isProcessAlive(bot.pid)) {
+              process.kill(bot.pid, 'SIGKILL')
+            }
+          }, 2000)
+        } catch (err) {
+          console.log(`Error killing orphan process ${bot.pid}:`, err)
+        }
+      } else {
+        console.log(`❌ Bot ${bot.name} marked as running but process ${bot.pid} not found`)
+      }
+
+      // Update DB เป็น stopped เพราะไม่มี process reference
+      const stopTime = new Date().toISOString()
+      db.prepare(`
+        UPDATE bots
+        SET status = 'stopped', pid = NULL, stopped_at = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(stopTime, bot.id)
+    })
+
+      console.log(`✅ Recovery complete, all bots synced to stopped state`)
+    } catch (error) {
+      console.error(`❌ Recovery failed:`, error)
+    }
+  }
+
+  // เช็คว่า process ยัง alive อยู่จริง ๆ หรือไม่
+  isProcessAlive(pid) {
+    if (!pid) return false
+    try {
+      // ส่ง signal 0 เพื่อเช็คว่า process ยังมีอยู่หรือไม่
+      // ถ้า process ยังมีอยู่จะไม่ throw error
+      process.kill(pid, 0)
+      return true
+    } catch (err) {
+      // ESRCH = No such process
+      return err.code !== 'ESRCH'
+    }
   }
 
   async startBot(botId) {
@@ -67,18 +125,20 @@ class BotManager {
     const pid = pythonProcess.pid
     const startTime = new Date().toISOString()
 
+    // อัพเดท DB ก่อน (เพื่อป้องกัน race condition กับ health monitor)
+    db.prepare(`
+      UPDATE bots
+      SET status = 'running', pid = ?, started_at = ?, stopped_at = NULL, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(pid, startTime, botId)
+
+    // จากนั้นค่อยเพิ่มเข้า Map (ตอนนี้ DB และ process สอดคล้องกันแล้ว)
     this.runningProcesses.set(botId, {
       process: pythonProcess,
       pid: pid,
       startTime: startTime,
       logPath: logPath
     })
-
-    db.prepare(`
-      UPDATE bots
-      SET status = 'running', pid = ?, started_at = ?, stopped_at = NULL, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(pid, startTime, botId)
 
     if (logPath) {
       const logStream = fs.createWriteStream(logPath, { flags: 'a' })
@@ -147,34 +207,88 @@ class BotManager {
 
     const processInfo = this.runningProcesses.get(botId)
     if (!processInfo) {
-      throw new Error(`Bot ${bot.name} is not running`)
-    }
-
-    const { process: pythonProcess } = processInfo
-
-    return new Promise((resolve, reject) => {
-      const killTimeout = setTimeout(() => {
-        console.log(`Force killing bot ${bot.name} with SIGKILL`)
-        pythonProcess.kill('SIGKILL')
-      }, 10000)
-
-      pythonProcess.on('exit', () => {
-        clearTimeout(killTimeout)
-        this.runningProcesses.delete(botId)
-
+      // ถ้าไม่มีใน map แต่ DB บอก running อาจจะมี pid
+      if (bot.status === 'running' && bot.pid) {
+        console.log(`Bot ${bot.name} not in map but has PID ${bot.pid}, trying to kill...`)
+        try {
+          if (this.isProcessAlive(bot.pid)) {
+            process.kill(bot.pid, 'SIGTERM')
+            // รอ 2 วินาที แล้ว force kill ถ้ายัง alive
+            await new Promise(resolve => setTimeout(resolve, 2000))
+            if (this.isProcessAlive(bot.pid)) {
+              process.kill(bot.pid, 'SIGKILL')
+            }
+          }
+        } catch (err) {
+          console.log(`Failed to kill process ${bot.pid}:`, err)
+        }
+        // อัพเดท DB
         const stopTime = new Date().toISOString()
         db.prepare(`
           UPDATE bots
           SET status = 'stopped', pid = NULL, stopped_at = ?, updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `).run(stopTime, botId)
+        return { success: true, message: `Bot ${bot.name} stopped (cleanup)` }
+      }
+      throw new Error(`Bot ${bot.name} is not running`)
+    }
 
-        console.log(`✅ Stopped bot ${bot.name}`)
-        resolve({ success: true, message: `Bot ${bot.name} stopped successfully` })
-      })
+    const { process: pythonProcess, pid } = processInfo
 
-      console.log(`Stopping bot ${bot.name} with SIGTERM`)
-      pythonProcess.kill('SIGTERM')
+    return new Promise((resolve, reject) => {
+      let resolved = false
+
+      const killTimeout = setTimeout(() => {
+        console.log(`Force killing bot ${bot.name} with SIGKILL`)
+        try {
+          pythonProcess.kill('SIGKILL')
+        } catch (err) {
+          console.log(`Error sending SIGKILL:`, err)
+        }
+      }, 10000)
+
+      // ใช้ exit handler ที่มีอยู่แล้วจาก startBot()
+      // แต่ต้องรอให้ process จบ
+      const checkInterval = setInterval(() => {
+        if (!this.runningProcesses.has(botId) && !resolved) {
+          resolved = true
+          clearTimeout(killTimeout)
+          clearInterval(checkInterval)
+          console.log(`✅ Stopped bot ${bot.name}`)
+          resolve({ success: true, message: `Bot ${bot.name} stopped successfully` })
+        }
+      }, 100)
+
+      // Timeout สำรองถ้ารอนานเกินไป
+      const maxTimeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true
+          clearTimeout(killTimeout)
+          clearInterval(checkInterval)
+
+          // Force cleanup
+          this.runningProcesses.delete(botId)
+          const stopTime = new Date().toISOString()
+          db.prepare(`
+            UPDATE bots
+            SET status = 'stopped', pid = NULL, stopped_at = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `).run(stopTime, botId)
+
+          resolve({ success: true, message: `Bot ${bot.name} stopped (timeout)` })
+        }
+      }, 15000)
+
+      console.log(`Stopping bot ${bot.name} (PID: ${pid}) with SIGTERM`)
+      try {
+        pythonProcess.kill('SIGTERM')
+      } catch (err) {
+        clearTimeout(killTimeout)
+        clearInterval(checkInterval)
+        clearTimeout(maxTimeout)
+        reject(new Error(`Failed to send SIGTERM: ${err.message}`))
+      }
     })
   }
 
@@ -199,9 +313,20 @@ class BotManager {
     }
 
     const processInfo = this.runningProcesses.get(botId)
-    const isActuallyRunning = processInfo !== undefined
+    // เช็คทั้ง Map และ process จริง ๆ
+    const isInMap = processInfo !== undefined
+    const isProcessAlive = isInMap && this.isProcessAlive(processInfo.pid)
+    const isActuallyRunning = isInMap && isProcessAlive
 
+    // ถ้า process ไม่ alive แต่ยังอยู่ใน Map = ลบออกจาก Map
+    if (isInMap && !isProcessAlive) {
+      console.log(`Process ${processInfo.pid} for bot ${bot.name} is dead, removing from map`)
+      this.runningProcesses.delete(botId)
+    }
+
+    // Sync status ใน DB
     if (bot.status === 'running' && !isActuallyRunning) {
+      console.log(`Syncing status: Bot ${bot.name} DB says running but process is not alive`)
       db.prepare(`
         UPDATE bots
         SET status = 'stopped', pid = NULL, updated_at = CURRENT_TIMESTAMP
@@ -209,6 +334,16 @@ class BotManager {
       `).run(botId)
       bot.status = 'stopped'
       bot.pid = null
+    } else if (bot.status === 'stopped' && isActuallyRunning) {
+      // กรณีพิเศษ: process running แต่ DB บอก stopped = sync กลับ
+      console.log(`Syncing status: Bot ${bot.name} DB says stopped but process is running`)
+      db.prepare(`
+        UPDATE bots
+        SET status = 'running', pid = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(processInfo.pid, botId)
+      bot.status = 'running'
+      bot.pid = processInfo.pid
     }
 
     return {
@@ -225,9 +360,20 @@ class BotManager {
 
     return bots.map(bot => {
       const processInfo = this.runningProcesses.get(bot.id)
-      const isActuallyRunning = processInfo !== undefined
+      // เช็คทั้ง Map และ process จริง ๆ
+      const isInMap = processInfo !== undefined
+      const isProcessAlive = isInMap && this.isProcessAlive(processInfo.pid)
+      const isActuallyRunning = isInMap && isProcessAlive
 
+      // ถ้า process ไม่ alive แต่ยังอยู่ใน Map = ลบออกจาก Map
+      if (isInMap && !isProcessAlive) {
+        console.log(`Process ${processInfo.pid} for bot ${bot.name} is dead, removing from map`)
+        this.runningProcesses.delete(bot.id)
+      }
+
+      // Sync status ใน DB
       if (bot.status === 'running' && !isActuallyRunning) {
+        console.log(`Syncing status: Bot ${bot.name} DB says running but process is not alive`)
         db.prepare(`
           UPDATE bots
           SET status = 'stopped', pid = NULL, updated_at = CURRENT_TIMESTAMP
@@ -235,6 +381,16 @@ class BotManager {
         `).run(bot.id)
         bot.status = 'stopped'
         bot.pid = null
+      } else if (bot.status === 'stopped' && isActuallyRunning) {
+        // กรณีพิเศษ: process running แต่ DB บอก stopped = sync กลับ
+        console.log(`Syncing status: Bot ${bot.name} DB says stopped but process is running`)
+        db.prepare(`
+          UPDATE bots
+          SET status = 'running', pid = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).run(processInfo.pid, bot.id)
+        bot.status = 'running'
+        bot.pid = processInfo.pid
       }
 
       return {
@@ -271,8 +427,18 @@ class BotManager {
 
     runningBots.forEach(bot => {
       const processInfo = this.runningProcesses.get(bot.id)
-      if (!processInfo) {
-        console.log(`Health check: Bot ${bot.name} marked as running but no process found`)
+      const isInMap = processInfo !== undefined
+      const isProcessAlive = isInMap && this.isProcessAlive(processInfo.pid)
+
+      // ถ้า process ไม่ alive แต่ยังอยู่ใน Map = ลบออกจาก Map
+      if (isInMap && !isProcessAlive) {
+        console.log(`Health check: Process ${processInfo.pid} for bot ${bot.name} is dead, removing from map`)
+        this.runningProcesses.delete(bot.id)
+      }
+
+      // ถ้า DB บอก running แต่ process ไม่ได้ running จริง = sync DB
+      if (!isInMap || !isProcessAlive) {
+        console.log(`Health check: Bot ${bot.name} marked as running but process is not alive (inMap: ${isInMap}, alive: ${isProcessAlive})`)
         db.prepare(`
           UPDATE bots
           SET status = 'stopped', pid = NULL, updated_at = CURRENT_TIMESTAMP
@@ -280,6 +446,25 @@ class BotManager {
         `).run(bot.id)
       }
     })
+
+    // เช็คอีกด้าน: ถ้ามี process running แต่ DB บอก stopped = sync DB
+    for (const [botId, processInfo] of this.runningProcesses.entries()) {
+      if (this.isProcessAlive(processInfo.pid)) {
+        const bot = db.prepare('SELECT * FROM bots WHERE id = ?').get(botId)
+        if (bot && bot.status === 'stopped') {
+          console.log(`Health check: Bot ${bot.name} has running process but DB says stopped, syncing...`)
+          db.prepare(`
+            UPDATE bots
+            SET status = 'running', pid = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `).run(processInfo.pid, botId)
+        }
+      } else {
+        // Process dead แต่ยังอยู่ใน Map = ลบออก
+        console.log(`Health check: Process ${processInfo.pid} in map is dead, removing...`)
+        this.runningProcesses.delete(botId)
+      }
+    }
   }
 
   stopHealthMonitor() {

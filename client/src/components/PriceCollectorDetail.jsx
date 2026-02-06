@@ -14,22 +14,31 @@ function PriceCollectorDetail({ onLogout }) {
   const [autoScroll, setAutoScroll] = useState(true)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [isV2, setIsV2] = useState(false)
   const logEndRef = useRef(null)
   const eventSourceRef = useRef(null)
 
   useEffect(() => {
     fetchBot()
-    fetchStats()
-    fetchRecentTrades()
+  }, [botId])
+
+  // Once we know bot version, fetch correct data
+  useEffect(() => {
+    if (bot === null) return
+    const v2 = bot.config?.collector_version === 'v2'
+    setIsV2(v2)
+
+    fetchStats(v2)
+    fetchRecentTrades(v2)
     fetchInitialLogs()
 
     const interval = setInterval(() => {
       fetchBot()
-      fetchStats()
-      fetchRecentTrades()
+      fetchStats(v2)
+      fetchRecentTrades(v2)
     }, 5000)
 
-    // Connect to log stream (pass token in query string for EventSource)
+    // Connect to log stream
     const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
     const token = localStorage.getItem('token')
     eventSourceRef.current = new EventSource(
@@ -53,7 +62,7 @@ function PriceCollectorDetail({ onLogout }) {
         eventSourceRef.current.close()
       }
     }
-  }, [botId])
+  }, [bot?.id])
 
   useEffect(() => {
     if (autoScroll && logEndRef.current) {
@@ -70,18 +79,22 @@ function PriceCollectorDetail({ onLogout }) {
     }
   }
 
-  const fetchStats = async () => {
+  const fetchStats = async (v2) => {
     try {
-      const data = await tradesAPI.getStats(botId)
+      const data = v2
+        ? await tradesAPI.getV2Stats(botId)
+        : await tradesAPI.getStats(botId)
       setStats(data)
     } catch (err) {
       console.error('Error fetching stats:', err)
     }
   }
 
-  const fetchRecentTrades = async () => {
+  const fetchRecentTrades = async (v2) => {
     try {
-      const data = await tradesAPI.getRecent(botId, 10)
+      const data = v2
+        ? await tradesAPI.getV2Recent(botId, 10)
+        : await tradesAPI.getRecent(botId, 10)
       setRecentTrades(data)
     } catch (err) {
       console.error('Error fetching recent trades:', err)
@@ -127,7 +140,11 @@ function PriceCollectorDetail({ onLogout }) {
   const handleExportCSV = async () => {
     try {
       setError('')
-      await tradesAPI.exportCSV(botId)
+      if (isV2) {
+        await tradesAPI.exportV2CSV(botId)
+      } else {
+        await tradesAPI.exportCSV(botId)
+      }
     } catch (err) {
       setError(err.message)
     }
@@ -140,9 +157,13 @@ function PriceCollectorDetail({ onLogout }) {
 
     try {
       setError('')
-      await tradesAPI.clearTrades(botId)
-      await fetchStats()
-      await fetchRecentTrades()
+      if (isV2) {
+        await tradesAPI.clearV2Trades(botId)
+      } else {
+        await tradesAPI.clearTrades(botId)
+      }
+      await fetchStats(isV2)
+      await fetchRecentTrades(isV2)
     } catch (err) {
       setError(err.message)
     }
@@ -191,6 +212,7 @@ function PriceCollectorDetail({ onLogout }) {
                 <h1>{bot.name}</h1>
                 <p className="bot-config">
                   {stats?.symbol} • {stats?.socket_type?.toUpperCase()}
+                  {isV2 && <span className="version-tag v2">V2 Multi-Stream</span>}
                 </p>
               </div>
               <span className={`status-badge ${bot.status}`}>
@@ -235,6 +257,7 @@ function PriceCollectorDetail({ onLogout }) {
 
           {activeTab === 'dashboard' && stats && (
             <>
+              {/* Common Stats Row */}
               <div className="stats-grid">
                 <div className="stat-card glass">
                   <div className="stat-label">Total Records</div>
@@ -256,43 +279,124 @@ function PriceCollectorDetail({ onLogout }) {
                 </div>
               </div>
 
-              <div className="side-distribution glass">
-                <h3>Trade Distribution</h3>
-                <div className="distribution-bars">
-                  <div className="distribution-item">
-                    <div className="distribution-label">
-                      <span className="buy-dot"></span>
-                      BUY: {stats.side_distribution.BUY || 0}
+              {/* V2 Extra Stats */}
+              {isV2 && stats.volume_stats && (
+                <>
+                  <div className="stats-grid">
+                    <div className="stat-card glass green-accent">
+                      <div className="stat-label">📈 Buy Volume</div>
+                      <div className="stat-value buy-text">{stats.volume_stats.total_buy_volume.toFixed(4)}</div>
+                      <div className="stat-sub">{stats.volume_stats.total_buy_count.toLocaleString()} trades</div>
                     </div>
-                    <div className="distribution-bar">
-                      <div
-                        className="distribution-fill buy"
-                        style={{
-                          width: `${((stats.side_distribution.BUY || 0) / stats.total_records) * 100}%`
-                        }}
-                      ></div>
+                    <div className="stat-card glass red-accent">
+                      <div className="stat-label">📉 Sell Volume</div>
+                      <div className="stat-value sell-text">{stats.volume_stats.total_sell_volume.toFixed(4)}</div>
+                      <div className="stat-sub">{stats.volume_stats.total_sell_count.toLocaleString()} trades</div>
+                    </div>
+                    <div className="stat-card glass">
+                      <div className="stat-label">📊 Avg Spread</div>
+                      <div className="stat-value">${stats.market_stats.avg_spread.toFixed(2)}</div>
+                    </div>
+                    <div className="stat-card glass">
+                      <div className="stat-label">⚖️ Avg Imbalance</div>
+                      <div className="stat-value" style={{ color: stats.market_stats.avg_imbalance >= 0 ? '#00c853' : '#ff1744' }}>
+                        {stats.market_stats.avg_imbalance >= 0 ? '+' : ''}{stats.market_stats.avg_imbalance.toFixed(4)}
+                      </div>
                     </div>
                   </div>
-                  <div className="distribution-item">
-                    <div className="distribution-label">
-                      <span className="sell-dot"></span>
-                      SELL: {stats.side_distribution.SELL || 0}
+
+                  <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                    <div className="stat-card glass">
+                      <div className="stat-label">💰 Funding Rate</div>
+                      <div className="stat-value">{(stats.market_stats.avg_funding_rate * 100).toFixed(4)}%</div>
                     </div>
-                    <div className="distribution-bar">
-                      <div
-                        className="distribution-fill sell"
-                        style={{
-                          width: `${((stats.side_distribution.SELL || 0) / stats.total_records) * 100}%`
-                        }}
-                      ></div>
+                    <div className="stat-card glass">
+                      <div className="stat-label">📦 Total Volume</div>
+                      <div className="stat-value">{stats.volume_stats.total_volume.toFixed(4)}</div>
+                    </div>
+                  </div>
+
+                  {/* Volume Distribution Bar */}
+                  <div className="side-distribution glass">
+                    <h3>Volume Flow Distribution</h3>
+                    <div className="distribution-bars">
+                      <div className="distribution-item">
+                        <div className="distribution-label">
+                          <span className="buy-dot"></span>
+                          BUY Volume: {stats.volume_stats.total_buy_volume.toFixed(4)}
+                        </div>
+                        <div className="distribution-bar">
+                          <div
+                            className="distribution-fill buy"
+                            style={{
+                              width: stats.volume_stats.total_volume > 0
+                                ? `${(stats.volume_stats.total_buy_volume / stats.volume_stats.total_volume) * 100}%`
+                                : '0%'
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                      <div className="distribution-item">
+                        <div className="distribution-label">
+                          <span className="sell-dot"></span>
+                          SELL Volume: {stats.volume_stats.total_sell_volume.toFixed(4)}
+                        </div>
+                        <div className="distribution-bar">
+                          <div
+                            className="distribution-fill sell"
+                            style={{
+                              width: stats.volume_stats.total_volume > 0
+                                ? `${(stats.volume_stats.total_sell_volume / stats.volume_stats.total_volume) * 100}%`
+                                : '0%'
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* V1 Side Distribution */}
+              {!isV2 && (
+                <div className="side-distribution glass">
+                  <h3>Trade Distribution</h3>
+                  <div className="distribution-bars">
+                    <div className="distribution-item">
+                      <div className="distribution-label">
+                        <span className="buy-dot"></span>
+                        BUY: {stats.side_distribution?.BUY || 0}
+                      </div>
+                      <div className="distribution-bar">
+                        <div
+                          className="distribution-fill buy"
+                          style={{
+                            width: `${((stats.side_distribution?.BUY || 0) / stats.total_records) * 100}%`
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div className="distribution-item">
+                      <div className="distribution-label">
+                        <span className="sell-dot"></span>
+                        SELL: {stats.side_distribution?.SELL || 0}
+                      </div>
+                      <div className="distribution-bar">
+                        <div
+                          className="distribution-fill sell"
+                          style={{
+                            width: `${((stats.side_distribution?.SELL || 0) / stats.total_records) * 100}%`
+                          }}
+                        ></div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <section className="recent-trades glass">
                 <div className="section-header">
-                  <h3>Recent Trades (Last 10)</h3>
+                  <h3>{isV2 ? 'Recent Records (Last 10)' : 'Recent Trades (Last 10)'}</h3>
                   <div className="section-actions">
                     <button
                       className="btn btn-secondary btn-sm"
@@ -312,6 +416,47 @@ function PriceCollectorDetail({ onLogout }) {
                 </div>
                 {recentTrades.length === 0 ? (
                   <div className="empty-state">No trades collected yet</div>
+                ) : isV2 ? (
+                  <div className="table-container">
+                    <table className="trades-table v2-table">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>O</th>
+                          <th>H</th>
+                          <th>L</th>
+                          <th>C</th>
+                          <th>Volume</th>
+                          <th>Net Flow</th>
+                          <th>Bid</th>
+                          <th>Ask</th>
+                          <th>Spread</th>
+                          <th>Imbalance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentTrades.map((trade) => (
+                          <tr key={trade.id}>
+                            <td className="time-cell">{new Date(trade.readable_time).toLocaleTimeString()}</td>
+                            <td className="price">${trade.open.toFixed(1)}</td>
+                            <td className="price high">${trade.high.toFixed(1)}</td>
+                            <td className="price low">${trade.low.toFixed(1)}</td>
+                            <td className="price">${trade.close.toFixed(1)}</td>
+                            <td>{trade.total_volume.toFixed(4)}</td>
+                            <td className={trade.net_flow >= 0 ? 'buy-text' : 'sell-text'}>
+                              {trade.net_flow >= 0 ? '+' : ''}{trade.net_flow.toFixed(4)}
+                            </td>
+                            <td className="price">${trade.best_bid.toFixed(1)}</td>
+                            <td className="price">${trade.best_ask.toFixed(1)}</td>
+                            <td>${trade.spread.toFixed(2)}</td>
+                            <td className={trade.book_imbalance >= 0 ? 'buy-text' : 'sell-text'}>
+                              {trade.book_imbalance >= 0 ? '+' : ''}{trade.book_imbalance.toFixed(4)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
                   <div className="table-container">
                     <table className="trades-table">

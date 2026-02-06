@@ -438,3 +438,63 @@
     height: 350px;
   }
 }
+
+/* V2 Version Tag */
+.version-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+.version-tag.v2 {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+}
+
+/* V2 Stat Card Accents */
+.stat-card.green-accent {
+  border-left: 3px solid #00c853;
+}
+
+.stat-card.red-accent {
+  border-left: 3px solid #ff1744;
+}
+
+.stat-sub {
+  color: var(--platinum);
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.buy-text {
+  color: #00c853 !important;
+}
+
+.sell-text {
+  color: #ff1744 !important;
+}
+
+/* V2 Table Styles */
+.v2-table th,
+.v2-table td {
+  font-size: 0.82rem;
+  padding: calc(var(--spacing-unit) * 1) calc(var(--spacing-unit) * 1.2);
+  white-space: nowrap;
+}
+
+.v2-table .time-cell {
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.v2-table .high {
+  color: #00c853;
+}
+
+.v2-table .low {
+  color: #ff1744;
+}

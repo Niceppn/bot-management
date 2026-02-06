@@ -4,13 +4,14 @@
 Crypto Price Collector V2 - Multi-Stream Edition
 Collects: aggTrade + Order Book (depth) + Funding Rate (markPrice)
 Uses REST API snapshot for Order Book initialization
+Storage: SQLite (crypto_trades_v2 table)
 
 Usage:
     python collect_price_v2.py --bot-id 1 --symbol btcusdc --socket-type demo
 """
 
 import json
-import csv
+import sqlite3
 import os
 import sys
 import time
@@ -30,18 +31,53 @@ except ImportError:
 # =========================
 # Configuration
 # =========================
-CSV_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "server", "data", "bot_manager.db")
 RECONNECT_DELAY = 5
 
-# CSV Headers
-CSV_HEADERS = [
-    'timestamp', 'readable_time', 'symbol',
-    'open', 'high', 'low', 'close',
-    'buy_volume', 'sell_volume', 'total_volume', 'net_flow',
-    'buy_count', 'sell_count', 'trade_count',
-    'best_bid', 'best_ask', 'bid_qty', 'ask_qty',
-    'spread', 'book_imbalance', 'funding_rate'
-]
+# =========================
+# Database Helpers
+# =========================
+def get_db_connection():
+    """Get SQLite database connection with WAL mode for better performance"""
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
+
+def ensure_table_exists(conn):
+    """Ensure crypto_trades_v2 table exists"""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS crypto_trades_v2 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            bot_id INTEGER NOT NULL,
+            symbol TEXT NOT NULL,
+            timestamp_ms INTEGER NOT NULL,
+            readable_time TEXT NOT NULL,
+            open REAL NOT NULL,
+            high REAL NOT NULL,
+            low REAL NOT NULL,
+            close REAL NOT NULL,
+            buy_volume REAL DEFAULT 0,
+            sell_volume REAL DEFAULT 0,
+            total_volume REAL DEFAULT 0,
+            net_flow REAL DEFAULT 0,
+            buy_count INTEGER DEFAULT 0,
+            sell_count INTEGER DEFAULT 0,
+            trade_count INTEGER DEFAULT 0,
+            best_bid REAL DEFAULT 0,
+            best_ask REAL DEFAULT 0,
+            bid_qty REAL DEFAULT 0,
+            ask_qty REAL DEFAULT 0,
+            spread REAL DEFAULT 0,
+            book_imbalance REAL DEFAULT 0,
+            funding_rate REAL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_crypto_trades_v2_bot_id ON crypto_trades_v2(bot_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_crypto_trades_v2_symbol ON crypto_trades_v2(symbol)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_crypto_trades_v2_timestamp ON crypto_trades_v2(timestamp_ms)")
+    conn.commit()
 
 # WebSocket endpoints (combined streams)
 SOCKET_TYPES = {
@@ -87,11 +123,8 @@ class MultiStreamCollector:
         self.trade_buffer = []
         self.last_flush_time = time.time()
         
-        # CSV file setup
-        today = datetime.now().strftime('%Y%m%d')
-        self.csv_filename = os.path.join(CSV_DIR, f"{self.symbol_upper}_{socket_type}_{today}.csv")
-        self.csv_file = None
-        self.csv_writer = None
+        # Database connection
+        self.db_conn = None
         
         # Order Book (will be initialized from REST API)
         self.order_book = {
@@ -270,20 +303,8 @@ class MultiStreamCollector:
         """Process markPrice data for funding rate"""
         self.funding_rate = float(data.get('r', 0))
     
-    def init_csv_file(self):
-        """Initialize CSV file with headers if needed"""
-        file_exists = os.path.exists(self.csv_filename)
-        self.csv_file = open(self.csv_filename, 'a', newline='', buffering=1)
-        self.csv_writer = csv.writer(self.csv_file)
-        
-        if not file_exists:
-            self.csv_writer.writerow(CSV_HEADERS)
-            log("INFO", f"Created new CSV file: {self.csv_filename}")
-        else:
-            log("INFO", f"Appending to existing CSV: {self.csv_filename}")
-    
     def save_second_data(self):
-        """Save aggregated second data to CSV"""
+        """Save aggregated second data to SQLite"""
         if not self.second_data['trades']:
             return
         
@@ -297,13 +318,14 @@ class MultiStreamCollector:
             net_flow = self.second_data['buy_volume'] - self.second_data['sell_volume']
             trade_count = self.second_data['buy_count'] + self.second_data['sell_count']
             
-            # Prepare CSV row
+            # Prepare row tuple for SQLite
             readable_time = datetime.fromtimestamp(self.current_second).strftime("%Y-%m-%d %H:%M:%S")
             
-            row = [
+            row = (
+                self.bot_id,
+                self.symbol_upper,
                 self.current_second * 1000,  # timestamp_ms
                 readable_time,
-                self.symbol_upper,
                 self.second_data['open_price'],
                 self.second_data['high_price'],
                 self.second_data['low_price'],
@@ -322,7 +344,7 @@ class MultiStreamCollector:
                 round(spread, 2),
                 round(book_imbalance, 4),
                 self.funding_rate
-            ]
+            )
             
             self.trade_buffer.append(row)
             self.trade_count += 1
@@ -335,7 +357,7 @@ class MultiStreamCollector:
                     f"Imbalance={book_imbalance:+.3f} | "
                     f"Records={self.trade_count}")
             
-            # Flush to CSV
+            # Flush to DB
             if len(self.trade_buffer) >= self.batch_size or time.time() - self.last_flush_time >= 5:
                 self.flush_trades()
                 
@@ -343,18 +365,28 @@ class MultiStreamCollector:
             log("ERROR", f"Error saving second data: {e}")
     
     def flush_trades(self):
-        """Flush trades to CSV file"""
+        """Flush trades to SQLite database"""
         if not self.trade_buffer:
             return 0
         
         try:
-            if not self.csv_writer:
-                self.init_csv_file()
+            if not self.db_conn:
+                self.db_conn = get_db_connection()
+                ensure_table_exists(self.db_conn)
             
-            for row in self.trade_buffer:
-                self.csv_writer.writerow(row)
+            cursor = self.db_conn.cursor()
+            cursor.executemany("""
+                INSERT INTO crypto_trades_v2
+                (bot_id, symbol, timestamp_ms, readable_time,
+                 open, high, low, close,
+                 buy_volume, sell_volume, total_volume, net_flow,
+                 buy_count, sell_count, trade_count,
+                 best_bid, best_ask, bid_qty, ask_qty,
+                 spread, book_imbalance, funding_rate)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, self.trade_buffer)
             
-            self.csv_file.flush()
+            self.db_conn.commit()
             batch_count = len(self.trade_buffer)
             self.trade_buffer.clear()
             self.last_flush_time = time.time()
@@ -362,8 +394,15 @@ class MultiStreamCollector:
             return batch_count
             
         except Exception as e:
-            log("ERROR", f"CSV write error: {e}")
+            log("ERROR", f"Database write error: {e}")
             self.trade_buffer.clear()
+            # Reconnect on error
+            if self.db_conn:
+                try:
+                    self.db_conn.close()
+                except:
+                    pass
+                self.db_conn = None
             return 0
     
     def on_message(self, ws, message):
@@ -394,19 +433,20 @@ class MultiStreamCollector:
             batch_count = self.flush_trades()
             log("INFO", f"Flushed {batch_count} remaining records")
         
-        if self.csv_file:
+        # Close database connection
+        if self.db_conn:
             try:
-                self.csv_file.close()
+                self.db_conn.close()
             except:
                 pass
-            self.csv_file = None
-            self.csv_writer = None
+            self.db_conn = None
         
         log("WARNING", "WebSocket closed. Will reconnect...")
     
     def on_open(self, ws):
         log("INFO", f"Connected to {self.socket_type.upper()} WebSocket")
         log("INFO", f"Streams: aggTrade + depth@500ms + markPrice")
+        log("INFO", f"Storage: SQLite (crypto_trades_v2 table)")
         log("INFO", f"Collecting data (Bot ID: {self.bot_id})...")
     
     def start(self):
@@ -417,6 +457,7 @@ class MultiStreamCollector:
         log("INFO", f"Symbol: {self.symbol_upper}")
         log("INFO", f"Socket Type: {self.socket_type.upper()}")
         log("INFO", f"Bot ID: {self.bot_id}")
+        log("INFO", f"Database: {DB_PATH}")
         log("INFO", f"WebSocket URL: {self.ws_url}")
         log("INFO", "=" * 60)
         
@@ -451,8 +492,8 @@ class MultiStreamCollector:
                 if self.trade_buffer:
                     batch_count = self.flush_trades()
                     log("INFO", f"Flushed {batch_count} remaining records")
-                if self.csv_file:
-                    self.csv_file.close()
+                if self.db_conn:
+                    self.db_conn.close()
                 sys.exit(0)
                 
             except Exception as e:
@@ -472,7 +513,7 @@ if __name__ == "__main__":
     parser.add_argument('--symbol', type=str, default='btcusdc', help='Trading symbol (default: btcusdc)')
     parser.add_argument('--socket-type', type=str, choices=['spot', 'future', 'demo'],
                         default='demo', help='Socket type (default: demo)')
-    parser.add_argument('--batch-size', type=int, default=50, help='Batch size for CSV writes')
+    parser.add_argument('--batch-size', type=int, default=50, help='Batch size for DB writes')
     
     args = parser.parse_args()
     
