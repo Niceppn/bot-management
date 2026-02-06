@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { botAPI, modelsAPI } from '../services/api'
+import { botAPI, modelsAPI, getApiBaseUrl } from '../services/api'
 import Sidebar from './Sidebar'
 import './CreateTradingBot.css'
 
@@ -95,7 +95,7 @@ function CreateTradingBot({ onLogout }) {
         }
 
         // This will auto-create config via the API
-        await fetch(`http://localhost:3001/api/trading/bots/${botId}/config`, {
+        await fetch(`${getApiBaseUrl()}/trading/bots/${botId}/config`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

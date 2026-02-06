@@ -5,6 +5,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || (
     : '/api'
 )
 
+// Export for EventSource and direct fetch usage
+export const getApiBaseUrl = () => API_BASE_URL
+
 const getToken = () => localStorage.getItem('token')
 const setToken = (token) => localStorage.setItem('token', token)
 const removeToken = () => localStorage.removeItem('token')
@@ -167,7 +170,7 @@ export const tradesAPI = {
   },
 
   exportCSV: async (botId) => {
-    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+    const apiBaseUrl = API_BASE_URL
     const token = localStorage.getItem('token')
 
     const response = await fetch(`${apiBaseUrl}/trades/${botId}/export`, {
@@ -219,7 +222,7 @@ export const tradesAPI = {
   },
 
   exportV2CSV: async (botId) => {
-    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+    const apiBaseUrl = API_BASE_URL
     const token = localStorage.getItem('token')
 
     const response = await fetch(`${apiBaseUrl}/trades/${botId}/v2/export`, {

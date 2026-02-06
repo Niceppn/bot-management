@@ -1,88 +1,138 @@
 # Deployment Workflow
 
+> **Server**: `47.129.144.109` (Bitnami Apache on AWS Lightsail)
+> **Updated**: 2026-02-06
+
+---
+
+## ⚠️ สรุป Path สำคัญ (อย่างงนะ!)
+
+### Path ที่ Apache Serve จริง (ต้อง copy ไปทั้ง 2 ที่)
+
+| Path | ใช้กับ | Config File |
+|---|---|---|
+| `/opt/bot-manager/dist/` | **HTTP** (port 80) | `bitnami.conf` → `DocumentRoot "/opt/bot-manager/dist/"` |
+| `/opt/bitnami/apache/htdocs/` | **HTTPS** (port 443) | `bitnami-ssl.conf` → `DocumentRoot "/opt/bitnami/apache/htdocs/"` |
+
+### Path ที่ ❌ ไม่ได้ Serve โดยตรง
+
+| Path | หมายเหตุ |
+|---|---|
+| `/opt/bot-manager/client/dist/` | เป็นแค่ **output จาก `npm run build`** — ต้อง copy ออกไปอีกที |
+
+### Flow การ Build → Deploy
+
+```
+npm run build
+      ↓
+/opt/bot-manager/client/dist/    ← build output (ไม่ได้ serve)
+      ↓ copy ไป 2 ที่
+      ├──→ /opt/bot-manager/dist/         ← HTTP  (port 80)
+      └──→ /opt/bitnami/apache/htdocs/   ← HTTPS (port 443)
+```
+
+---
+
 ## Production Server Setup
 
 **Frontend (Static Files):**
-- Location: `/opt/bitnami/apache/htdocs/`
-- Served by: Bitnami Apache (port 80)
-- Files: HTML, CSS, JS assets
+- HTTP: `/opt/bot-manager/dist/` (port 80)
+- HTTPS: `/opt/bitnami/apache/htdocs/` (port 443)
+- Served by: Bitnami Apache
 
 **Backend API:**
 - Location: `/opt/bot-manager/server/`
-- Served by: Node.js (port 3001)
-- Process: Multiple instances running
+- Served by: Node.js via PM2 (port 3001)
+- PM2 Path: `/opt/bitnami/node/bin/pm2`
 
 **Python Bots:**
 - Location: `/opt/bot-manager/bots/`
-- Process: Background Python processes
+- V1: `collect_price.py` → SQLite `crypto_trades`
+- V2: `collect_price_v2.py` → SQLite `crypto_trades_v2`
 
-## Correct Deploy Steps
+**Database:**
+- SQLite: `/opt/bot-manager/server/data/bot_manager.db`
 
-### 1. Local Development
+---
+
+## Deploy Steps
+
+### 1. Local → Push
 ```bash
-# Make changes locally
 git add .
 git commit -m "Your message"
-git push
+git push origin main
 ```
 
-### 2. Server Update
+### 2. One-liner Deploy (ใช้คำสั่งเดียวจบ)
 ```bash
-# Pull latest code
+ssh bitnami@47.129.144.109 "cd /opt/bot-manager && git pull origin main && cd client && npm run build && sudo cp -r dist/* /opt/bot-manager/dist/ && sudo cp -r dist/* /opt/bitnami/apache/htdocs/ && cd .. && /opt/bitnami/node/bin/pm2 restart all"
+```
+
+### 3. Step-by-step (ถ้าต้อง debug)
+```bash
+# Pull code
 ssh bitnami@47.129.144.109 "cd /opt/bot-manager && git pull origin main"
 
 # Build frontend
 ssh bitnami@47.129.144.109 "cd /opt/bot-manager/client && npm run build"
 
-# Deploy to Apache htdocs (CRITICAL STEP)
+# Copy ไป HTTP path (port 80)
+ssh bitnami@47.129.144.109 "sudo cp -r /opt/bot-manager/client/dist/* /opt/bot-manager/dist/"
+
+# Copy ไป HTTPS path (port 443)
 ssh bitnami@47.129.144.109 "sudo cp -r /opt/bot-manager/client/dist/* /opt/bitnami/apache/htdocs/"
+
+# Restart backend
+ssh bitnami@47.129.144.109 "/opt/bitnami/node/bin/pm2 restart all"
 ```
 
-### 3. Restart Services (if needed)
+---
+
+## Verify หลัง Deploy
+
 ```bash
-# Restart Apache
-ssh bitnami@47.129.144.109 "sudo /opt/bitnami/ctlscript.sh restart apache"
+# เช็ค HTTP
+curl -s http://47.129.144.109/ | head -5
 
-# Check backend processes
-ssh bitnami@47.129.144.109 "ps aux | grep node"
+# เช็ค HTTPS
+curl -sk https://47.129.144.109/ | head -5
+
+# เช็ค PM2 status
+ssh bitnami@47.129.144.109 "/opt/bitnami/node/bin/pm2 list"
+
+# เช็ค build hash ตรงกัน
+ssh bitnami@47.129.144.109 "ls /opt/bot-manager/dist/assets/ && echo '---' && ls /opt/bitnami/apache/htdocs/assets/"
 ```
 
-## Common Mistakes (FIXED)
-
-❌ **Wrong Path**: `/opt/bot-manager/dist/` - Apache doesn't serve from here
-✅ **Correct Path**: `/opt/bitnami/apache/htdocs/` - Apache serves from here
-
-❌ **Missing Step**: Forgetting to copy to htdocs after build
-✅ **Fixed**: Always copy from `client/dist/*` to `/opt/bitnami/apache/htdocs/`
-
-## Process Management
-
-**PM2 Location**: `/opt/bitnami/node/bin/pm2`
-
-**Node.js Servers Running:**
-- `/opt/bot-manager/server/server.js` (Main API server)
-- Multiple instances for load balancing
-
-**Python Bots Running:**
-- Price collectors for various symbols
-- Background data collection processes
+---
 
 ## File Structure
 
 ```
-/opt/bot-manager/           # Git repository
-├── client/dist/           # Build output (temporary)
-├── server/               # Node.js API
-└── bots/                # Python bots
+/opt/bot-manager/                  ← Git repository
+├── client/
+│   └── dist/                     ← npm run build output (ไม่ได้ serve!)
+├── server/
+│   ├── server.js                 ← Node.js API (PM2)
+│   └── data/bot_manager.db      ← SQLite database
+├── bots/
+│   ├── collect_price.py          ← V1 collector
+│   └── collect_price_v2.py       ← V2 multi-stream collector
+└── dist/                         ← ✅ HTTP serve path (port 80)
 
-/opt/bitnami/apache/htdocs/  # ACTUAL web files served by Apache
+/opt/bitnami/apache/htdocs/       ← ✅ HTTPS serve path (port 443)
 ├── index.html
 └── assets/
 ```
 
-## Deployment Verification
+---
 
-After deployment, check:
-1. `cat /opt/bitnami/apache/htdocs/index.html` - Should show latest asset filenames
-2. Browser hard refresh (Ctrl+F5) to see changes
-3. Check Apache serves the correct files: `curl -I http://your-server/`
+## Common Mistakes
+
+| ❌ ผิด | ✅ ถูก |
+|---|---|
+| Copy ไปแค่ htdocs ที่เดียว | ต้อง copy ไป **ทั้ง 2 ที่** (dist + htdocs) |
+| ลืม restart PM2 หลังแก้ server code | ใส่ `pm2 restart all` ตอนท้ายเสมอ |
+| ใช้ `pm2` ตรงๆ (ไม่มี path) | ต้องใช้ `/opt/bitnami/node/bin/pm2` |
+| Hard refresh ไม่เห็นผล | เช็คว่า copy ถูก path ทั้ง HTTP + HTTPS |

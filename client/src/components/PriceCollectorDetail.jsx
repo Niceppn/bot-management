@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { botAPI, tradesAPI, logsAPI } from '../services/api'
+import { botAPI, tradesAPI, logsAPI, getApiBaseUrl } from '../services/api'
 import Sidebar from './Sidebar'
 import './PriceCollectorDetail.css'
 
@@ -39,7 +39,7 @@ function PriceCollectorDetail({ onLogout }) {
     }, 5000)
 
     // Connect to log stream
-    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+    const apiBaseUrl = getApiBaseUrl()
     const token = localStorage.getItem('token')
     eventSourceRef.current = new EventSource(
       `${apiBaseUrl}/logs/${botId}/stream?token=${token}`
