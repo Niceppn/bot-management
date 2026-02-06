@@ -10,15 +10,31 @@ function CreatePriceCollectorBot({ onLogout }) {
     name: '',
     symbol: 'btcusdc',
     socket_type: 'spot',
-    category: 'Collector'
+    category: 'Collector',
+    collector_version: 'v2'
   })
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  const collectorVersions = [
+    {
+      value: 'v1',
+      label: 'Version 1 - Basic',
+      description: 'aggTrade only → SQLite DB',
+      features: ['Single stream (aggTrade)', 'Raw trade data', 'Save to SQLite database']
+    },
+    {
+      value: 'v2',
+      label: 'Version 2 - Multi-Stream',
+      description: 'aggTrade + Order Book + Funding Rate → CSV',
+      features: ['3 streams (aggTrade + depth + markPrice)', '21 columns per second (OHLC, Volume, Order Book, Funding Rate)', 'Save to CSV file', 'REST API Order Book snapshot']
+    }
+  ]
+
   const socketTypes = [
     { value: 'spot', label: 'Spot Trading', endpoint: 'wss://stream.binance.com:9443' },
     { value: 'future', label: 'Futures Trading', endpoint: 'wss://fstream.binance.com' },
-    { value: 'demo', label: 'Demo/Testnet', endpoint: 'wss://demo-dstream.binance.com' }
+    { value: 'demo', label: 'Demo/Testnet', endpoint: 'wss://demo-fstream.binance.com' }
   ]
 
   const popularSymbols = [
@@ -34,14 +50,16 @@ function CreatePriceCollectorBot({ onLogout }) {
     setIsLoading(true)
 
     try {
+      const versionLabel = formData.collector_version === 'v2' ? 'V2 Multi-Stream' : 'V1 Basic'
       const botData = {
         name: formData.name,
-        description: `Collects ${formData.symbol.toUpperCase()} price data from Binance ${formData.socket_type.toUpperCase()}`,
+        description: `[${versionLabel}] Collects ${formData.symbol.toUpperCase()} price data from Binance ${formData.socket_type.toUpperCase()}`,
         bot_type: 'price_collector',
         category: formData.category,
         config: {
           symbol: formData.symbol.toLowerCase(),
-          socket_type: formData.socket_type
+          socket_type: formData.socket_type,
+          collector_version: formData.collector_version
         }
       }
 
@@ -106,6 +124,41 @@ function CreatePriceCollectorBot({ onLogout }) {
                   ))}
                 </select>
                 <small>Organize your bots by category</small>
+              </div>
+            </div>
+
+            <div className="form-section">
+              <h3>Collector Version</h3>
+              <div className="form-group">
+                <label>Select Version *</label>
+                <div className="version-options">
+                  {collectorVersions.map(ver => (
+                    <div
+                      key={ver.value}
+                      className={`version-card ${formData.collector_version === ver.value ? 'active' : ''}`}
+                      onClick={() => !isLoading && setFormData({ ...formData, collector_version: ver.value })}
+                    >
+                      <div className="version-header">
+                        <input
+                          type="radio"
+                          name="collector_version"
+                          value={ver.value}
+                          checked={formData.collector_version === ver.value}
+                          onChange={(e) => setFormData({ ...formData, collector_version: e.target.value })}
+                          disabled={isLoading}
+                        />
+                        <span className="version-label">{ver.label}</span>
+                        {ver.value === 'v2' && <span className="version-badge">Recommended</span>}
+                      </div>
+                      <p className="version-desc">{ver.description}</p>
+                      <ul className="version-features">
+                        {ver.features.map((f, i) => (
+                          <li key={i}>✓ {f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -192,10 +245,11 @@ function CreatePriceCollectorBot({ onLogout }) {
             <h4>ℹ️ About Price Collector Bots</h4>
             <ul>
               <li>Connects to Binance WebSocket for real-time trade data</li>
-              <li>Saves all trades to database for analysis</li>
+              <li><strong>V1 Basic:</strong> aggTrade stream → saves raw trades to SQLite database</li>
+              <li><strong>V2 Multi-Stream:</strong> aggTrade + Order Book + Funding Rate → saves 21 columns/sec to CSV (recommended for AI training)</li>
               <li>Spot: Live trading data from Binance spot market</li>
               <li>Future: Live trading data from Binance futures market</li>
-              <li>Demo: Test data from Binance testnet (no real money)</li>
+              <li>Demo: Test data from Binance futures testnet (no real money)</li>
             </ul>
           </div>
         </div>

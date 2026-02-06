@@ -56,7 +56,12 @@ router.post('/', verifyToken, (req, res) => {
     let log_path = `server/logs/${name.toLowerCase().replace(/\s+/g, '_')}.log`
 
     if (bot_type === 'price_collector') {
-      script_path = 'bots/collect_price.py'
+      // Choose script based on collector version
+      const collectorVersion = config?.collector_version || 'v1'
+      script_path = collectorVersion === 'v2'
+        ? 'bots/collect_price_v2.py'
+        : 'bots/collect_price.py'
+
       if (config && config.symbol && config.socket_type) {
         script_args = JSON.stringify([
           '--bot-id', '{{BOT_ID}}',
