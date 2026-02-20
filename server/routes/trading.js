@@ -367,12 +367,28 @@ router.get('/bots/:id/stats', verifyToken, (req, res) => {
       WHERE bot_id = ? AND status IN ('pending', 'active')
     `).get(botId)
 
+    // Get all-time stats
+    const allTime = db.prepare(`
+      SELECT
+        COUNT(*) as total_trades,
+        SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins,
+        SUM(CASE WHEN pnl <= 0 THEN 1 ELSE 0 END) as losses,
+        COALESCE(SUM(pnl), 0) as total_pnl
+      FROM trading_orders
+      WHERE bot_id = ? AND status = 'closed'
+    `).get(botId)
+
     res.json({
       success: true,
       data: {
         today: todayStats,
         historical: historicalStats,
-        active_orders: activeOrders.count
+        active_orders: activeOrders.count,
+        total_trades: allTime.total_trades || 0,
+        total_pnl: allTime.total_pnl || 0,
+        win_rate: allTime.total_trades > 0
+          ? ((allTime.wins || 0) / allTime.total_trades) * 100
+          : 0
       }
     })
   } catch (error) {
@@ -405,6 +421,182 @@ router.get('/bots/:id/pnl', verifyToken, (req, res) => {
     res.json({ success: true, data: pnlData })
   } catch (error) {
     console.error('Error fetching PNL:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Get PNL by hour (for win/loss chart)
+router.get('/bots/:id/pnl-by-hour', verifyToken, (req, res) => {
+  try {
+    const db = getDatabase()
+    const botId = parseInt(req.params.id)
+    const from = req.query.from  // YYYY-MM-DD
+    const to = req.query.to      // YYYY-MM-DD
+    const side = req.query.side  // BUY or SELL (optional)
+    const sideFilter = side ? ` AND side = '${side === 'BUY' ? 'BUY' : 'SELL'}'` : ''
+
+    let data
+    if (from && to) {
+      data = db.prepare(`
+        SELECT
+          CAST(STRFTIME('%H', created_at, '+7 hours') AS INTEGER) as hour,
+          COUNT(*) as trades,
+          SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins,
+          SUM(CASE WHEN pnl <= 0 THEN 1 ELSE 0 END) as losses,
+          COALESCE(SUM(pnl), 0) as total_pnl
+        FROM trading_orders
+        WHERE bot_id = ? AND status = 'closed'
+          AND DATE(created_at, '+7 hours') >= ? AND DATE(created_at, '+7 hours') <= ?${sideFilter}
+        GROUP BY STRFTIME('%H', created_at, '+7 hours')
+        ORDER BY hour ASC
+      `).all(botId, from, to)
+    } else {
+      const days = parseInt(req.query.days) || 30
+      data = db.prepare(`
+        SELECT
+          CAST(STRFTIME('%H', created_at, '+7 hours') AS INTEGER) as hour,
+          COUNT(*) as trades,
+          SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins,
+          SUM(CASE WHEN pnl <= 0 THEN 1 ELSE 0 END) as losses,
+          COALESCE(SUM(pnl), 0) as total_pnl
+        FROM trading_orders
+        WHERE bot_id = ? AND status = 'closed'
+          AND DATE(created_at) >= date('now', '-' || ? || ' days')${sideFilter}
+        GROUP BY STRFTIME('%H', created_at, '+7 hours')
+        ORDER BY hour ASC
+      `).all(botId, days)
+    }
+
+    // Fill missing hours with zeros
+    const hourMap = {}
+    data.forEach(d => { hourMap[d.hour] = d })
+    const fullData = []
+    for (let h = 0; h < 24; h++) {
+      fullData.push(hourMap[h] || { hour: h, trades: 0, wins: 0, losses: 0, total_pnl: 0 })
+    }
+
+    res.json({ success: true, data: fullData })
+  } catch (error) {
+    console.error('Error fetching PNL by hour:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Get cumulative PNL over time
+router.get('/bots/:id/cumulative-pnl', verifyToken, (req, res) => {
+  try {
+    const db = getDatabase()
+    const botId = parseInt(req.params.id)
+    const days = parseInt(req.query.days) || 30
+
+    const data = db.prepare(`
+      SELECT
+        DATE(created_at, '+7 hours') as date,
+        COALESCE(SUM(pnl), 0) as daily_pnl
+      FROM trading_orders
+      WHERE bot_id = ? AND status = 'closed'
+        AND DATE(created_at) >= date('now', '-' || ? || ' days')
+      GROUP BY DATE(created_at, '+7 hours')
+      ORDER BY date ASC
+    `).all(botId, days)
+
+    let cumulative = 0
+    const result = data.map(d => {
+      cumulative += d.daily_pnl
+      return { date: d.date, daily_pnl: parseFloat(d.daily_pnl.toFixed(4)), cumulative_pnl: parseFloat(cumulative.toFixed(4)) }
+    })
+
+    res.json({ success: true, data: result })
+  } catch (error) {
+    console.error('Error fetching cumulative PNL:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Get win rate by confidence range
+router.get('/bots/:id/winrate-by-confidence', verifyToken, (req, res) => {
+  try {
+    const db = getDatabase()
+    const botId = parseInt(req.params.id)
+
+    const longData = db.prepare(`
+      SELECT
+        (CAST(confidence * 20 AS INTEGER) * 5) as range_start,
+        COUNT(*) as total,
+        SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins,
+        ROUND(SUM(CASE WHEN pnl > 0 THEN 1.0 ELSE 0.0 END) / COUNT(*) * 100, 1) as win_rate
+      FROM trading_orders
+      WHERE bot_id = ? AND status = 'closed' AND confidence IS NOT NULL AND side = 'BUY'
+      GROUP BY range_start
+      ORDER BY range_start ASC
+    `).all(botId)
+    longData.forEach(d => { d.range = d.range_start + '-' + (d.range_start + 5) + '%' })
+
+    const shortData = db.prepare(`
+      SELECT
+        (CAST(confidence * 20 AS INTEGER) * 5) as range_start,
+        COUNT(*) as total,
+        SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins,
+        ROUND(SUM(CASE WHEN pnl > 0 THEN 1.0 ELSE 0.0 END) / COUNT(*) * 100, 1) as win_rate
+      FROM trading_orders
+      WHERE bot_id = ? AND status = 'closed' AND confidence IS NOT NULL AND side = 'SELL'
+      GROUP BY range_start
+      ORDER BY range_start ASC
+    `).all(botId)
+    shortData.forEach(d => { d.range = d.range_start + '-' + (d.range_start + 5) + '%' })
+
+    res.json({ success: true, long: longData, short: shortData })
+  } catch (error) {
+    console.error('Error fetching winrate by confidence:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Get trades by confidence range
+router.get('/bots/:id/trades-by-confidence', verifyToken, (req, res) => {
+  try {
+    const db = getDatabase()
+    const botId = parseInt(req.params.id)
+    const side = req.query.side === 'BUY' ? 'BUY' : 'SELL'
+    const min = parseFloat(req.query.min) || 0
+    const max = parseFloat(req.query.max) || 1
+
+    const data = db.prepare(`
+      SELECT
+        id, created_at, symbol, side, confidence, pnl, entry_price, exit_reason
+      FROM trading_orders
+      WHERE bot_id = ? AND status = 'closed' AND side = ?
+        AND confidence >= ? AND confidence < ?
+      ORDER BY created_at DESC
+      LIMIT 50
+    `).all(botId, side, min, max)
+
+    res.json({ success: true, data })
+  } catch (error) {
+    console.error('Error fetching trades by confidence:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Get exit reason breakdown
+router.get('/bots/:id/exit-reasons', verifyToken, (req, res) => {
+  try {
+    const db = getDatabase()
+    const botId = parseInt(req.params.id)
+
+    const data = db.prepare(`
+      SELECT
+        COALESCE(exit_reason, 'Unknown') as reason,
+        COUNT(*) as count
+      FROM trading_orders
+      WHERE bot_id = ? AND status = 'closed'
+      GROUP BY exit_reason
+      ORDER BY count DESC
+    `).all(botId)
+
+    res.json({ success: true, data })
+  } catch (error) {
+    console.error('Error fetching exit reasons:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

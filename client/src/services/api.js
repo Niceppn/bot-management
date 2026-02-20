@@ -424,6 +424,20 @@ export const tradingAPI = {
     return response.data || []
   },
 
+  getTradesByHour: async (botId, hour, side, from = null, to = null) => {
+    const params = new URLSearchParams({ hour: hour.toString(), side })
+    if (from) params.append('from', from)
+    if (to) params.append('to', to)
+    const response = await apiRequest(`/trading/bots/${botId}/trades-by-hour?${params}`)
+    return response.data || []
+  },
+
+  getPNLDistribution: async (botId, days = 30) => {
+    const params = new URLSearchParams({ days: days.toString() })
+    const response = await apiRequest(`/trading/bots/${botId}/pnl-distribution?${params}`)
+    return response.data || []
+  },
+
   getPNLByHourRange: async (botId, from, to, side = null) => {
     const params = new URLSearchParams({ from, to })
     if (side) params.append('side', side)

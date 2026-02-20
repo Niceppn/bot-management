@@ -53,6 +53,9 @@ function TradingV3FuturesDetail({ onLogout }) {
   const [hourlyDataShort, setHourlyDataShort] = useState([])
   const [hourlyLabel, setHourlyLabel] = useState('Last 30 Days')
   const [hourlyActive, setHourlyActive] = useState('30d')
+  const [hourlyFilter, setHourlyFilter] = useState({ days: 30 })
+  const [hourlyClickTrades, setHourlyClickTrades] = useState(null)
+  const [pnlDistribution, setPnlDistribution] = useState([])
   const [cumulativePnl, setCumulativePnl] = useState([])
   const [confidenceLong, setConfidenceLong] = useState([])
   const [confidenceShort, setConfidenceShort] = useState([])
@@ -117,6 +120,8 @@ function TradingV3FuturesDetail({ onLogout }) {
       }
       setHourlyDataLong(longData)
       setHourlyDataShort(shortData)
+      setHourlyFilter(opts)
+      setHourlyClickTrades(null)
     } catch { setHourlyDataLong([]); setHourlyDataShort([]) }
   }
 
@@ -128,6 +133,7 @@ function TradingV3FuturesDetail({ onLogout }) {
     tradingAPI.getCumulativePNL(id, 90).then(setCumulativePnl).catch(() => {})
     tradingAPI.getWinRateByConfidence(id).then(d => { setConfidenceLong(d.long); setConfidenceShort(d.short) }).catch(() => {})
     tradingAPI.getExitReasons(id).then(setExitReasons).catch(() => {})
+    tradingAPI.getPNLDistribution(id, 30).then(setPnlDistribution).catch(() => {})
     const interval = setInterval(() => {
       fetchData()
       fetchOrders()
@@ -455,8 +461,26 @@ function TradingV3FuturesDetail({ onLogout }) {
                               formatter={(value, name) => [value, name === 'wins' ? 'Wins' : 'Losses']}
                               labelFormatter={(h) => `${h}:00 - ${h}:59`}
                             />
-                            <Bar dataKey="wins" fill="#10B981" radius={[2, 2, 0, 0]} />
-                            <Bar dataKey="losses" fill="#EF4444" radius={[2, 2, 0, 0]} />
+                            <Bar dataKey="wins" fill="#10B981" radius={[2, 2, 0, 0]} cursor="pointer"
+                              onClick={(data) => {
+                                const d = data?.payload || data
+                                const hour = d?.hour
+                                if (hour == null) return
+                                tradingAPI.getTradesByHour(id, hour, 'BUY', hourlyFilter.from || null, hourlyFilter.to || null)
+                                  .then(trades => setHourlyClickTrades({ hour, side: 'LONG', trades }))
+                                  .catch(() => {})
+                              }}
+                            />
+                            <Bar dataKey="losses" fill="#EF4444" radius={[2, 2, 0, 0]} cursor="pointer"
+                              onClick={(data) => {
+                                const d = data?.payload || data
+                                const hour = d?.hour
+                                if (hour == null) return
+                                tradingAPI.getTradesByHour(id, hour, 'BUY', hourlyFilter.from || null, hourlyFilter.to || null)
+                                  .then(trades => setHourlyClickTrades({ hour, side: 'LONG', trades }))
+                                  .catch(() => {})
+                              }}
+                            />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -474,12 +498,110 @@ function TradingV3FuturesDetail({ onLogout }) {
                               formatter={(value, name) => [value, name === 'wins' ? 'Wins' : 'Losses']}
                               labelFormatter={(h) => `${h}:00 - ${h}:59`}
                             />
-                            <Bar dataKey="wins" fill="#F59E0B" radius={[2, 2, 0, 0]} />
-                            <Bar dataKey="losses" fill="#EF4444" radius={[2, 2, 0, 0]} />
+                            <Bar dataKey="wins" fill="#F59E0B" radius={[2, 2, 0, 0]} cursor="pointer"
+                              onClick={(data) => {
+                                const d = data?.payload || data
+                                const hour = d?.hour
+                                if (hour == null) return
+                                tradingAPI.getTradesByHour(id, hour, 'SELL', hourlyFilter.from || null, hourlyFilter.to || null)
+                                  .then(trades => setHourlyClickTrades({ hour, side: 'SHORT', trades }))
+                                  .catch(() => {})
+                              }}
+                            />
+                            <Bar dataKey="losses" fill="#EF4444" radius={[2, 2, 0, 0]} cursor="pointer"
+                              onClick={(data) => {
+                                const d = data?.payload || data
+                                const hour = d?.hour
+                                if (hour == null) return
+                                tradingAPI.getTradesByHour(id, hour, 'SELL', hourlyFilter.from || null, hourlyFilter.to || null)
+                                  .then(trades => setHourlyClickTrades({ hour, side: 'SHORT', trades }))
+                                  .catch(() => {})
+                              }}
+                            />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
+                  </div>
+
+                  {hourlyClickTrades && (
+                    <div style={{ background: 'var(--void-light)', border: '1px solid var(--graphite)', borderRadius: '8px', padding: '1rem 1.25rem', marginTop: '1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <h4 style={{ color: 'var(--platinum-light)', fontSize: '0.9rem', margin: 0 }}>
+                          {hourlyClickTrades.side} — {String(hourlyClickTrades.hour).padStart(2,'0')}:00 - {String(hourlyClickTrades.hour).padStart(2,'0')}:59 ({hourlyClickTrades.trades.length} trades)
+                        </h4>
+                        <button onClick={() => setHourlyClickTrades(null)} style={{
+                          background: 'none', border: '1px solid var(--graphite)', borderRadius: '6px',
+                          color: 'var(--platinum)', cursor: 'pointer', padding: '0.2rem 0.6rem', fontSize: '0.75rem'
+                        }}>Close</button>
+                      </div>
+                      {hourlyClickTrades.trades.length === 0 ? (
+                        <p className="tv3-muted">No trades in this hour</p>
+                      ) : (
+                        <div className="tv3-table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                          <table className="tv3-table" style={{ fontSize: '0.8rem' }}>
+                            <thead>
+                              <tr>
+                                <th>Time (TH)</th>
+                                <th>PNL</th>
+                                <th>Confidence</th>
+                                <th>Result</th>
+                                <th>Exit Reason</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {hourlyClickTrades.trades.map(t => {
+                                const dt = new Date(t.created_at + 'Z')
+                                const win = (t.pnl || 0) > 0
+                                return (
+                                  <tr key={t.id}>
+                                    <td>{dt.toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' })}</td>
+                                    <td style={{ color: win ? '#10B981' : '#EF4444' }}>{formatPnl(t.pnl)}</td>
+                                    <td>{t.confidence ? (t.confidence * 100).toFixed(1) + '%' : '-'}</td>
+                                    <td style={{ color: win ? '#10B981' : '#EF4444', fontWeight: 600 }}>{win ? 'WIN' : 'LOSS'}</td>
+                                    <td>{t.exit_reason || '-'}</td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {pnlDistribution.length > 0 && (
+                <>
+                  <h3 className="tv3-section-title">PNL Distribution (Last 30 Days)</h3>
+                  <div style={{ background: 'var(--void-light)', border: '1px solid var(--graphite)', borderRadius: '8px', padding: 'calc(var(--spacing-unit) * 2)', marginBottom: '1.5rem' }}>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={pnlDistribution} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--graphite)" />
+                        <XAxis dataKey="label" stroke="var(--platinum)" tick={{ fontSize: 9 }} />
+                        <YAxis stroke="var(--platinum)" tick={{ fontSize: 11 }} allowDecimals={false} />
+                        <Tooltip
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null
+                            const d = payload[0]?.payload
+                            const total = (d?.wins || 0) + (d?.losses || 0)
+                            const wr = total > 0 ? ((d.wins / total) * 100).toFixed(1) : '0.0'
+                            return (
+                              <div style={{ background: 'var(--void)', border: '1px solid var(--graphite)', borderRadius: '8px', padding: '0.5rem 0.75rem', color: '#fff', fontSize: '0.85rem' }}>
+                                <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{label}</div>
+                                <div style={{ color: '#10B981' }}>Wins: {d?.wins || 0}</div>
+                                <div style={{ color: '#EF4444' }}>Losses: {d?.losses || 0}</div>
+                                <div>Win Rate: {wr}%</div>
+                              </div>
+                            )
+                          }}
+                        />
+                        <Legend formatter={(v) => v === 'wins' ? 'Wins' : 'Losses'} />
+                        <Bar dataKey="wins" fill="#10B981" stackId="a" />
+                        <Bar dataKey="losses" fill="#EF4444" stackId="a" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </>
               )}
