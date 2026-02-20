@@ -723,30 +723,39 @@ function TradingV3FuturesDetail({ onLogout }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h3 className="tv3-section-title" style={{ margin: 0 }}>All Orders</h3>
                 {orders.length > 0 && (
-                  <button className="btn btn-secondary" onClick={() => {
-                    const headers = ['ID','Time','Symbol','Side','Entry','TP','SL','Qty','PNL','Confidence','Status','Reason']
-                    const rows = orders.map(o => [
-                      o.id,
-                      o.created_at ? new Date(o.created_at + 'Z').toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' }) : '',
-                      o.symbol,
-                      o.side,
-                      o.entry_price ? parseFloat(o.entry_price).toFixed(4) : '',
-                      o.take_profit ? parseFloat(o.take_profit).toFixed(4) : '',
-                      o.stop_loss ? parseFloat(o.stop_loss).toFixed(4) : '',
-                      o.quantity ? parseFloat(o.quantity).toFixed(4) : '',
-                      o.pnl != null ? parseFloat(o.pnl).toFixed(4) : '',
-                      o.confidence ? (o.confidence * 100).toFixed(1) + '%' : '',
-                      o.status || '',
-                      o.exit_reason || ''
-                    ])
-                    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
-                    const blob = new Blob([csv], { type: 'text/csv' })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement('a')
-                    a.href = url
-                    a.download = `orders_bot_${id}_${new Date().toISOString().slice(0,10)}.csv`
-                    a.click()
-                    URL.revokeObjectURL(url)
+                  <button className="btn btn-secondary" onClick={async (e) => {
+                    const btn = e.currentTarget
+                    btn.disabled = true
+                    btn.textContent = 'Downloading...'
+                    try {
+                      const allRes = await tradingAPI.getOrderHistory(id, 99999, 0)
+                      const allOrders = allRes?.orders || []
+                      const headers = ['ID','Time','Symbol','Side','Entry','TP','SL','Qty','PNL','Confidence','Status','Reason']
+                      const rows = allOrders.map(o => [
+                        o.id,
+                        o.created_at ? new Date(o.created_at + 'Z').toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' }) : '',
+                        o.symbol,
+                        o.side,
+                        o.entry_price ? parseFloat(o.entry_price).toFixed(4) : '',
+                        o.take_profit ? parseFloat(o.take_profit).toFixed(4) : '',
+                        o.stop_loss ? parseFloat(o.stop_loss).toFixed(4) : '',
+                        o.quantity ? parseFloat(o.quantity).toFixed(4) : '',
+                        o.pnl != null ? parseFloat(o.pnl).toFixed(4) : '',
+                        o.confidence ? (o.confidence * 100).toFixed(1) + '%' : '',
+                        o.status || '',
+                        o.exit_reason || ''
+                      ])
+                      const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+                      const blob = new Blob([csv], { type: 'text/csv' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `orders_bot_${id}_${new Date().toISOString().slice(0,10)}.csv`
+                      a.click()
+                      URL.revokeObjectURL(url)
+                    } catch { }
+                    btn.disabled = false
+                    btn.textContent = 'Download CSV'
                   }}>
                     Download CSV
                   </button>
