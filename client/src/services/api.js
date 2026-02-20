@@ -147,6 +147,12 @@ export const logsAPI = {
     return apiRequest(`/logs/${botId}`, {
       method: 'DELETE'
     })
+  },
+
+  downloadLogs: (botId) => {
+    const token = getToken()
+    const baseUrl = getApiBaseUrl()
+    window.open(`${baseUrl}/logs/${botId}/download?token=${token}`, '_blank')
   }
 }
 
@@ -169,7 +175,7 @@ export const tradesAPI = {
     return response.data || []
   },
 
-  exportCSV: async (botId) => {
+  exportCSV: async (botId, onProgress) => {
     const apiBaseUrl = API_BASE_URL
     const token = localStorage.getItem('token')
 
@@ -184,18 +190,39 @@ export const tradesAPI = {
       throw new Error(error.error || 'Failed to export CSV')
     }
 
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-
-    // Get filename from Content-Disposition header
+    const totalRows = parseInt(response.headers.get('X-Total-Rows')) || 0
     const disposition = response.headers.get('Content-Disposition')
     let filename = `trades_${botId}_${new Date().toISOString().split('T')[0]}.csv`
     if (disposition && disposition.includes('filename=')) {
       filename = disposition.split('filename=')[1].replace(/"/g, '')
     }
 
+    // Stream-read with progress tracking
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    const chunks = []
+    let receivedRows = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      const text = decoder.decode(value, { stream: true })
+      for (let i = 0; i < text.length; i++) {
+        if (text[i] === '\n') receivedRows++
+      }
+      if (onProgress && totalRows > 0) {
+        const rows = Math.max(0, receivedRows - 1) // subtract header row
+        onProgress({ received: rows, total: totalRows, percent: Math.min(99, Math.round((rows / totalRows) * 100)) })
+      }
+    }
+
+    if (onProgress) onProgress({ received: totalRows, total: totalRows, percent: 100 })
+
+    const blob = new Blob(chunks, { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
     a.download = filename
     document.body.appendChild(a)
     a.click()
@@ -221,7 +248,7 @@ export const tradesAPI = {
     return response.data || []
   },
 
-  exportV2CSV: async (botId) => {
+  exportV2CSV: async (botId, onProgress) => {
     const apiBaseUrl = API_BASE_URL
     const token = localStorage.getItem('token')
 
@@ -234,15 +261,39 @@ export const tradesAPI = {
       throw new Error(error.error || 'Failed to export V2 CSV')
     }
 
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
+    const totalRows = parseInt(response.headers.get('X-Total-Rows')) || 0
     const disposition = response.headers.get('Content-Disposition')
     let filename = `trades_v2_${botId}_${new Date().toISOString().split('T')[0]}.csv`
     if (disposition && disposition.includes('filename=')) {
       filename = disposition.split('filename=')[1].replace(/"/g, '')
     }
+
+    // Stream-read with progress tracking
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    const chunks = []
+    let receivedRows = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      const text = decoder.decode(value, { stream: true })
+      for (let i = 0; i < text.length; i++) {
+        if (text[i] === '\n') receivedRows++
+      }
+      if (onProgress && totalRows > 0) {
+        const rows = Math.max(0, receivedRows - 1)
+        onProgress({ received: rows, total: totalRows, percent: Math.min(99, Math.round((rows / totalRows) * 100)) })
+      }
+    }
+
+    if (onProgress) onProgress({ received: totalRows, total: totalRows, percent: 100 })
+
+    const blob = new Blob(chunks, { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
     a.download = filename
     document.body.appendChild(a)
     a.click()
@@ -341,6 +392,42 @@ export const tradingAPI = {
   getPNL: async (botId, days = 7) => {
     const params = new URLSearchParams({ days: days.toString() })
     const response = await apiRequest(`/trading/bots/${botId}/pnl?${params}`)
+    return response.data || []
+  },
+
+  getPNLByHour: async (botId, days = 30, side = null) => {
+    const params = new URLSearchParams({ days: days.toString() })
+    if (side) params.append('side', side)
+    const response = await apiRequest(`/trading/bots/${botId}/pnl-by-hour?${params}`)
+    return response.data || []
+  },
+
+  getCumulativePNL: async (botId, days = 30) => {
+    const params = new URLSearchParams({ days: days.toString() })
+    const response = await apiRequest(`/trading/bots/${botId}/cumulative-pnl?${params}`)
+    return response.data || []
+  },
+
+  getWinRateByConfidence: async (botId) => {
+    const response = await apiRequest(`/trading/bots/${botId}/winrate-by-confidence`)
+    return { long: response.long || [], short: response.short || [] }
+  },
+
+  getTradesByConfidence: async (botId, side, min, max) => {
+    const params = new URLSearchParams({ side, min: min.toString(), max: max.toString() })
+    const response = await apiRequest(`/trading/bots/${botId}/trades-by-confidence?${params}`)
+    return response.data || []
+  },
+
+  getExitReasons: async (botId) => {
+    const response = await apiRequest(`/trading/bots/${botId}/exit-reasons`)
+    return response.data || []
+  },
+
+  getPNLByHourRange: async (botId, from, to, side = null) => {
+    const params = new URLSearchParams({ from, to })
+    if (side) params.append('side', side)
+    const response = await apiRequest(`/trading/bots/${botId}/pnl-by-hour?${params}`)
     return response.data || []
   }
 }
@@ -488,4 +575,85 @@ export const aiModelsAPI = {
       method: 'DELETE'
     })
   }
+}
+
+// ==========================================
+// Training Bot API (V3 model training)
+// ==========================================
+export const trainingBotAPI = {
+  getSymbols: () => apiRequest('/training-bot/symbols'),
+
+  train: (data) => apiRequest('/training-bot/train', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+
+  getHistory: () => apiRequest('/training-bot/history'),
+
+  stop: (jobId) => apiRequest(`/training-bot/${jobId}/stop`, {
+    method: 'POST'
+  }),
+
+  delete: (jobId) => apiRequest(`/training-bot/${jobId}`, {
+    method: 'DELETE'
+  }),
+
+  download: async (jobId, type = '') => {
+    const token = getToken()
+    const query = type ? `?type=${type}` : ''
+    const response = await fetch(`${API_BASE_URL}/training-bot/${jobId}/download${query}`, {
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) }
+    })
+    if (!response.ok) throw new Error('Download failed')
+    const blob = await response.blob()
+    const disposition = response.headers.get('Content-Disposition')
+    let filename = type === 'meta' ? `model_${jobId}_meta.json` : `model_${jobId}.txt`
+    if (disposition && disposition.includes('filename=')) {
+      filename = disposition.split('filename=')[1].replace(/"/g, '').trim()
+    }
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  }
+}
+
+// ==========================================
+// Trading V3 API
+// ==========================================
+export const tradingV3API = {
+  getBots: () => apiRequest('/trading-v3/bots'),
+  create: (data) => apiRequest('/trading-v3/create', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  getConfig: (id) => apiRequest(`/trading-v3/${id}/config`),
+  updateConfig: (id, config) => apiRequest(`/trading-v3/${id}/config`, {
+    method: 'PUT',
+    body: JSON.stringify(config)
+  }),
+  getAvailableModels: () => apiRequest('/trading-v3/available-models'),
+  delete: (id) => apiRequest(`/trading-v3/${id}`, { method: 'DELETE' })
+}
+
+// ==========================================
+// Trading V3 Futures API
+// ==========================================
+export const tradingV3FuturesAPI = {
+  getBots: () => apiRequest('/trading-v3-futures/bots'),
+  create: (data) => apiRequest('/trading-v3-futures/create', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  getConfig: (id) => apiRequest(`/trading-v3-futures/${id}/config`),
+  updateConfig: (id, config) => apiRequest(`/trading-v3-futures/${id}/config`, {
+    method: 'PUT',
+    body: JSON.stringify(config)
+  }),
+  getAvailableModels: () => apiRequest('/trading-v3-futures/available-models'),
+  delete: (id) => apiRequest(`/trading-v3-futures/${id}`, { method: 'DELETE' })
 }
